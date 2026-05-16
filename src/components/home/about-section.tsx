@@ -7,7 +7,7 @@ import type { HTMLMotionProps } from "framer-motion";
 import { shimmer, toBase64 } from "@/utils/shimmer";
 import ProtectedImage from "../ui/ProtectedImage";
 
-// Lazy-load framer-motion — only downloaded when this component mounts
+// Lazy-load framer-motion
 const MotionDiv = dynamic(
   () => import("framer-motion").then((mod) => mod.motion.div),
   { ssr: false },
@@ -21,24 +21,23 @@ const AnimatePresence = dynamic(
 // --- DEMO DATA ---
 const DEMO_ABOUT_TEXT = `The Arunachal Pradesh Pharmacy Council serves as the statutory authority dedicated to advancing and regulating the pharmacy profession across the state. With a strong commitment to public health and professional excellence, the Council oversees pharmacy education, ensuring that institutions adhere to prescribed academic standards and produce competent, well-trained pharmacists. It plays a pivotal role in maintaining an up-to-date register of qualified professionals, thereby safeguarding the integrity of pharmacy practice. Beyond its regulatory functions, the Council actively promotes ethical standards and accountability within the profession. By setting clear guidelines for professional conduct and continuously monitoring compliance, it helps build public trust in pharmaceutical services. The Council also acts as a bridge between policymakers, educational institutions, and healthcare providers, fostering collaboration to improve healthcare outcomes. Through its efforts, the Arunachal Pradesh Pharmacy Council not only ensures that pharmacists meet the required qualifications but also encourages continuous professional development. Its vision is to create a robust and responsible pharmacy ecosystem that contributes meaningfully to the healthcare system, prioritizing patient safety, innovation, and the highest standards of pharmaceutical care.`;
 
-// Using safe data:image SVGs to avoid Next.js external domain restrictions
 const DEMO_IMAGES = [
   {
     fileUrl:
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Crect width='240' height='240' fill='%231e3a8a'/%3E%3Ctext x='120' y='120' font-family='sans-serif' font-size='24' fill='white' text-anchor='middle' dominant-baseline='middle'%3EPresident%3C/text%3E%3C/svg%3E",
-    name: "Dr. A. Sharma",
+      "https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=500&auto=format&fit=crop",
+    name: "Dr. L. K. Sharma",
     designation: "President",
   },
   {
     fileUrl:
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Crect width='240' height='240' fill='%232563eb'/%3E%3Ctext x='120' y='120' font-family='sans-serif' font-size='24' fill='white' text-anchor='middle' dominant-baseline='middle'%3EVice President%3C/text%3E%3C/svg%3E",
-    name: "Dr. B. Singh",
+      "https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=500&auto=format&fit=crop",
+    name: "Dr. Pema Wangchu",
     designation: "Vice President",
   },
   {
     fileUrl:
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Crect width='240' height='240' fill='%233b82f6'/%3E%3Ctext x='120' y='120' font-family='sans-serif' font-size='24' fill='white' text-anchor='middle' dominant-baseline='middle'%3ERegistrar%3C/text%3E%3C/svg%3E",
-    name: "Mr. C. Doe",
+      "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=500&auto=format&fit=crop",
+    name: "Shri. T. Tsering",
     designation: "Registrar",
   },
 ];
@@ -64,7 +63,7 @@ export default function AboutSection() {
     return () => clearInterval(timer);
   }, [images.length]);
 
-  // Reset index if images reload and current index is out of bounds
+  // Reset index if images reload
   useEffect(() => {
     if (currentProfileIndex >= images.length && images.length > 0) {
       setCurrentProfileIndex(0);
@@ -107,12 +106,11 @@ export default function AboutSection() {
           )}
         </div>
 
-        {/* DIVIDER WITH GAPS */}
+        {/* DIVIDER */}
         <div className="bg-gray-200 shrink-0 h-px mx-8 my-4 lg:w-px lg:h-auto lg:mx-0 lg:my-10" />
 
-        {/* Right Side: Card Design */}
-        <div className="w-full lg:w-110 flex flex-col justify-center items-center relative">
-          {/* Loading skeleton */}
+        {/* Right Side: Slideshow Card */}
+        <div className="w-full lg:w-110 flex flex-col justify-center items-center relative py-8 lg:py-0">
           {imagesLoading && (
             <div className="w-full max-w-87.5 h-100 flex flex-col items-center justify-center gap-4 animate-pulse">
               <div className="w-60 h-60 bg-gray-200 rounded-lg" />
@@ -121,26 +119,24 @@ export default function AboutSection() {
             </div>
           )}
 
-          {/* Slideshow */}
           {!imagesLoading && images.length > 0 && currentProfile && (
             <div className="w-full max-w-87.5 h-100 relative z-20 flex flex-col overflow-hidden">
               <div className="grow relative">
                 <AnimatePresence>
                   <MotionDiv key={currentProfileIndex} {...motionProps}>
-                    {/* Photo */}
-                    <div className="w-60 h-60 bg-white rounded-lg shadow-2xl mb-6 shrink-0 relative overflow-hidden">
+                    {/* Photo Container */}
+                    <div className="w-64 h-64 bg-white rounded-lg shadow-xl mb-6 shrink-0 relative overflow-hidden border-4 border-gray-50">
                       <ProtectedImage
                         src={currentProfile.fileUrl}
                         alt={currentProfile.name}
                         fill
-                        sizes="240px"
-                        quality={75}
+                        sizes="256px"
+                        quality={90}
                         priority={currentProfileIndex === 0}
                         placeholder="blur"
-                        blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer(240, 240))}`}
-                        className="w-full h-full object-cover rounded bg-gray-100"
+                        blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer(256, 256))}`}
+                        className="w-full h-full object-cover rounded"
                         onError={(e) => {
-                          // Fixed: Also changed the error placeholder to avoid placehold.co domain check
                           (e.target as HTMLImageElement).srcset = "";
                           (e.target as HTMLImageElement).src =
                             "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Crect width='240' height='240' fill='%23e2e8f0'/%3E%3Ctext x='120' y='120' font-family='sans-serif' font-size='48' fill='%2394a3b8' text-anchor='middle' dominant-baseline='middle'%3E?%3C/text%3E%3C/svg%3E";
@@ -149,11 +145,11 @@ export default function AboutSection() {
                     </div>
 
                     {/* Name & Designation */}
-                    <div className="text-center w-full">
-                      <h2 className="text-lg font-bold text-blue-900 mb-1 leading-tight">
+                    <div className="text-center w-full px-4">
+                      <h2 className="text-xl font-bold text-blue-900 mb-1 leading-tight uppercase tracking-tight">
                         {currentProfile.name}
                       </h2>
-                      <p className="text-gray-700 text-sm font-semibold tracking-wide mb-2">
+                      <p className="text-blue-600 text-sm font-bold uppercase tracking-widest">
                         {currentProfile.designation}
                       </p>
                     </div>
@@ -163,7 +159,6 @@ export default function AboutSection() {
             </div>
           )}
 
-          {/* Empty state */}
           {!imagesLoading && images.length === 0 && (
             <div className="w-full max-w-87.5 h-100 flex flex-col items-center justify-center gap-2 text-gray-400">
               <p className="text-sm font-medium">
