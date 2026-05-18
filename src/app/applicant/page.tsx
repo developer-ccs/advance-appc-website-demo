@@ -1,21 +1,99 @@
 "use client";
 
-import { useEffect } from "react";
+import Link from "next/link";
 import {
-  Loader,
   Download,
-  ExternalLink,
-  ShieldX,
   Eye,
+  ShieldX,
   CircleCheck,
+  FilePlus,
+  RefreshCw,
+  ArrowRightLeft,
+  ChevronRight,
 } from "lucide-react";
-import { useUserProfileStore } from "@/store/userProfileStore";
-import { usePdfStore } from "@/store/pdfStore";
-import { useCertificateStore } from "@/store/certificateStore";
-import { FormDownloadRow } from "@/components/ui/FormDownloadRow";
-import { useAuthStore } from "@/store/authStore";
+
+// --- DEMO DATA CONSTANTS ---
+const DEMO_USER = {
+  name: "Dr. Jane Doe",
+  email: "jane.doe@example.com",
+  profileImage: "", // Add an image URL here to test the image render, otherwise it falls back to initials
+};
+
+const DEMO_ACTIVE_CERTS = [
+  {
+    _id: "demo-cert-1",
+    certificateType: "Renewal",
+    registrationNumber: "MED-2023-8475",
+    ownerName: "Dr. Jane Doe",
+    degree: "MBBS, MD (Cardiology)",
+    issueDate: "2023-01-15T00:00:00Z",
+    expiryDate: "2028-01-14T00:00:00Z",
+    remarks: "Standard 5-year renewal approved.",
+    fileUrl: "#demo-file",
+  },
+];
+
+const DEMO_HISTORY = [
+  {
+    _id: "demo-hist-2",
+    registrationNumber: "MED-2023-8475",
+    certificateType: "Renewal",
+    degree: "MBBS, MD (Cardiology)",
+    issueDate: "2023-01-15T00:00:00Z",
+    expiryDate: "2028-01-14T00:00:00Z",
+    status: "Active",
+    remarks: "Standard 5-year renewal",
+  },
+  {
+    _id: "demo-hist-1",
+    registrationNumber: "MED-2018-1234",
+    certificateType: "New",
+    degree: "MBBS",
+    issueDate: "2018-01-15T00:00:00Z",
+    expiryDate: "2023-01-14T00:00:00Z",
+    status: "Expired",
+    remarks: "Renewed to MED-2023-8475",
+  },
+];
+
+// --- APPLICATION LINKS DATA ---
+const APPLICATION_LINKS = [
+  {
+    id: "registration",
+    title: "New Registration",
+    description: "Apply for a new pharmacist certificate",
+    icon: FilePlus,
+    href: "/applicant/registration", // Adjust route as per your app structure
+    iconColor: "text-blue-600",
+    bgColor: "bg-blue-100",
+  },
+  {
+    id: "renewal",
+    title: "Certificate Renewal",
+    description: "Renew your existing registration",
+    icon: RefreshCw,
+    href: "/applicant/renewal", // Adjust route as per your app structure
+    iconColor: "text-red-600",
+    bgColor: "bg-red-100",
+  },
+  {
+    id: "reciprocal",
+    title: "Reciprocal Transfer",
+    description: "Transfer from another state council",
+    icon: ArrowRightLeft,
+    href: "/applicant/reciprocal", // Adjust route as per your app structure
+    iconColor: "text-indigo-600",
+    bgColor: "bg-indigo-100",
+  },
+];
 
 const handleDownload = async (fileUrl: string, fileName: string) => {
+  // Catch Demo Mode downloads
+  if (fileUrl === "#demo-file") {
+    alert(`[Demo] Download triggered for: ${fileName}`);
+    return;
+  }
+
   try {
     const response = await fetch(fileUrl);
     const blob = await response.blob();
@@ -28,57 +106,39 @@ const handleDownload = async (fileUrl: string, fileName: string) => {
     link.click();
     document.body.removeChild(link);
 
-    URL.revokeObjectURL(blobUrl); // clean up memory
+    URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.error("Download failed:", error);
   }
 };
 
+// Helper function to extract initials from the name
+const getInitials = (name: string) => {
+  const cleanName = name.replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, "");
+  const parts = cleanName.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return cleanName.substring(0, 2).toUpperCase();
+};
+
 export default function ApplicantDashboard() {
-  const { user, loading, fetchUser } = useUserProfileStore();
-  const { forms, fetchForms, loadingForms } = usePdfStore();
-  const _hasHydrated = useAuthStore((state) => state._hasHydrated);
-
-  const {
-    activeCerts,
-    history,
-    total,
-    loading: certLoading,
-    fetched,
-    fetchCertificate,
-  } = useCertificateStore();
-
-  useEffect(() => {
-    if (!_hasHydrated) return;
-    fetchUser();
-  }, [_hasHydrated]);
-
-  useEffect(() => {
-    if (!_hasHydrated) return;
-    fetchForms();
-  }, [_hasHydrated]);
-
-  useEffect(() => {
-    if (!_hasHydrated) return;
-    fetchCertificate();
-  }, [_hasHydrated]);
+  const displayTotal = DEMO_HISTORY.length;
 
   return (
     <div className="space-y-6 mx-auto">
       {/* ── Welcome Banner ── */}
-      <div className="bg-blue-900 rounded-xl p-6 text-white shadow-md relative overflow-hidden">
-        <div className="relative z-10">
-          <h2 className="text-2xl font-serif font-bold mb-1">
-            Welcome{" "}
-            {loading ? (
-              <span className="opacity-60">Loading...</span>
-            ) : (
-              <span>{user?.userId?.name}</span>
-            )}
-          </h2>
-          <p className="text-blue-100">
-            Here is the current status of your applications and pending actions.
-          </p>
+      <div className="bg-blue-900 rounded-xl p-6 text-white shadow-md relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="relative z-10 flex items-center space-x-4">
+          <div>
+            <h2 className="text-2xl font-serif font-bold mb-1">
+              Welcome, <span>{DEMO_USER.name}</span>
+            </h2>
+            <p className="text-blue-100 text-sm">
+              Here is the current status of your applications and pending
+              actions.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -87,19 +147,11 @@ export default function ApplicantDashboard() {
         <div className="lg:col-span-2 space-y-6">
           <div className="space-y-4">
             {/* Certificate Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              {/* Loading State */}
-              {certLoading ? (
-                <div className="flex items-center gap-3 py-10 justify-center text-gray-400">
-                  <Loader size={18} className="animate-spin" />
-                  <span className="text-sm">
-                    Fetching your certificate status...
-                  </span>
-                </div>
-              ) : activeCerts.length > 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              {DEMO_ACTIVE_CERTS.length > 0 ? (
                 /* ── Active Certificates ── */
                 <div className="space-y-4">
-                  {activeCerts.map((activeCert, idx) => (
+                  {DEMO_ACTIVE_CERTS.map((activeCert, idx) => (
                     <div
                       key={activeCert._id}
                       className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
@@ -109,9 +161,9 @@ export default function ApplicantDashboard() {
                         <div>
                           <h3 className="text-lg font-bold text-gray-800">
                             Registration Certificate
-                            {activeCerts.length > 1 && (
+                            {DEMO_ACTIVE_CERTS.length > 1 && (
                               <span className="ml-2 text-sm text-gray-400 font-normal">
-                                ({idx + 1} of {activeCerts.length})
+                                ({idx + 1} of {DEMO_ACTIVE_CERTS.length})
                               </span>
                             )}
                           </h3>
@@ -198,16 +250,14 @@ export default function ApplicantDashboard() {
 
                       {/* Actions */}
                       <div className="flex space-x-3">
-                        <a
-                          href={activeCert.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 transition font-medium text-sm flex items-center gap-2"
+                        <button
+                          onClick={() => alert("[Demo] Viewing Certificate")}
+                          className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 cursor-pointer transition font-medium text-sm flex items-center gap-2"
                         >
                           <Eye size={14} />
                           View Certificate
-                        </a>
-                        <a
+                        </button>
+                        <button
                           onClick={() =>
                             handleDownload(
                               activeCert.fileUrl,
@@ -218,7 +268,7 @@ export default function ApplicantDashboard() {
                         >
                           <Download size={14} />
                           Download Certificate
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -226,7 +276,6 @@ export default function ApplicantDashboard() {
               ) : (
                 /* ── No Active Certificate ── */
                 <div className="bg-white rounded-lg flex gap-2">
-                  {/* ── Certificate Not Issued Banner ── */}
                   <ShieldX size={18} className="text-red-500 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-semibold text-red-700">
@@ -238,16 +287,16 @@ export default function ApplicantDashboard() {
             </div>
 
             {/* ── Certificate History Table ── */}
-            {!certLoading && history.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            {DEMO_HISTORY.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-bold text-gray-800">
                       Certificate History
                     </h3>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {total} total certificate{total !== 1 ? "s" : ""} on
-                      record
+                      {displayTotal} total certificate
+                      {displayTotal !== 1 ? "s" : ""} on record
                     </p>
                   </div>
                 </div>
@@ -280,7 +329,7 @@ export default function ApplicantDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {history.map((cert) => (
+                      {DEMO_HISTORY.map((cert) => (
                         <tr
                           key={cert._id}
                           className="hover:bg-gray-50 transition"
@@ -348,36 +397,45 @@ export default function ApplicantDashboard() {
           </div>
         </div>
 
-        {/* ── Sidebar ── */}
+        {/* ── Sidebar (Application Links) ── */}
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-              <h3 className="font-bold text-gray-800">Download Forms</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-5 border-b border-gray-200 bg-gray-50">
+              <h3 className="font-bold text-gray-800 text-lg">Apply Online</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Submit a new application to the Council.
+              </p>
             </div>
 
             <div className="divide-y divide-gray-100">
-              {loadingForms ? (
-                <div className="p-6 flex items-center justify-center gap-2 text-gray-400 text-sm">
-                  <Loader size={16} className="animate-spin" />
-                  <span>Loading forms...</span>
-                </div>
-              ) : forms.length === 0 ? (
-                <div className="p-6 text-center text-sm text-gray-400">
-                  No forms available
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {forms.map((form) => (
-                    <FormDownloadRow key={form._id} form={form} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 border-t border-gray-100 text-center bg-white hover:bg-gray-50 transition">
-              <span className="text-xs font-bold text-blue-900">
-                Access and download the latest official forms
-              </span>
+              {APPLICATION_LINKS.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.id}
+                    href={link.href}
+                    className="flex items-center p-5 hover:bg-gray-50 transition-colors group cursor-pointer"
+                  >
+                    <div
+                      className={`${link.bgColor} ${link.iconColor} p-3 rounded-lg mr-4 group-hover:scale-105 transition-transform`}
+                    >
+                      <Icon size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-800 text-sm group-hover:text-blue-700 transition-colors">
+                        {link.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {link.description}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      size={18}
+                      className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-1 transition-all"
+                    />
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>

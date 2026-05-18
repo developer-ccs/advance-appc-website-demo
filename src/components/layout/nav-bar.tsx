@@ -72,9 +72,9 @@ export function Navbar() {
       label: "Services",
       twoColumns: true,
       dropdown: [
-        { path: "/services/new-registration", label: "Fresh Registration" },
-        { path: "/services/renewal", label: "Renewal of Registration" },
-        { path: "/services/transfer", label: "Transfer of Registration" },
+        { path: "/applicant/registration", label: "Fresh Registration" },
+        { path: "/applicant/renewal", label: "Renewal of Registration" },
+        { path: "/applicant/reciprocal", label: "Transfer of Registration" },
         {
           path: "/services/foreign",
           label: "Endorsement for Foreign Nationals",

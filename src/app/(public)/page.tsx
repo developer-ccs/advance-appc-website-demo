@@ -23,9 +23,9 @@ export default function Home() {
               <NoticeSection />
             </div>
 
-            <div className="flex-1">
+            {/* <div className="flex-1">
               <DownloadSection />
-            </div>
+            </div> */}
           </div>
         </div>
         <ServiceSection />

@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/authStore";
-import { apiClient } from "@/lib/axios-instance";
+import { usePathname } from "next/navigation";
 import { ChevronDown, Loader, LogOut } from "lucide-react";
 import Image from "next/image";
 import appcLogo from "@/../public/logos/appc-logo.png";
-import { useUserProfileStore } from "@/store/userProfileStore";
-import { UserRole } from "@/utils/types";
+
+// --- MOCK USER DATA ---
+const DEMO_USER = {
+  name: "Dr. Jane Doe",
+  email: "jane.doe@example.com",
+  profileImage: "", // Add a URL here to test the image, e.g., "https://i.pravatar.cc/150?img=32"
+};
 
 export default function ApplicantLayout({
   children,
@@ -16,10 +19,6 @@ export default function ApplicantLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const { clearAuth, _hasHydrated, user } = useAuthStore();
-  const { user: profileUser, loading, fetchUser } = useUserProfileStore();
 
   const [loggingOut, setLoggingOut] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -30,13 +29,15 @@ export default function ApplicantLayout({
 
   const navItems = [{ name: "Dashboard", href: "/applicant" }];
 
-  const getInitials = (name: string) =>
-    name
-      .trim()
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase();
+  // Extracts first letter of first name and first letter of surname
+  const getInitials = (name: string) => {
+    const cleanName = name.replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, "").trim();
+    const parts = cleanName.split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return cleanName.substring(0, 2).toUpperCase();
+  };
 
   /* Close menus on outside click */
   useEffect(() => {
@@ -61,32 +62,17 @@ export default function ApplicantLayout({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* Auth guard */
-  useEffect(() => {
-    if (!_hasHydrated) return;
-
-    if (!user || user.role !== UserRole.APPLICANT) {
-      router.replace("/");
-    }
-  }, [_hasHydrated, user, router]);
-
-  useEffect(() => {
-    if (!profileUser) fetchUser();
-  }, [profileUser, fetchUser]);
-
-  if (!_hasHydrated) return null;
-  if (!user || user.role !== UserRole.APPLICANT) return null;
-
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
+      // Simulated API delay
       await new Promise((resolve) => setTimeout(resolve, 600));
-      await apiClient.post("/applicant/logout");
+      console.log("Logged out successfully");
+      // Add redirection logic here if needed, e.g., router.push("/login")
     } catch (err) {
       console.error("Logout error", err);
     } finally {
-      clearAuth();
-      router.push("/");
+      setLoggingOut(false);
     }
   };
 
@@ -128,17 +114,26 @@ export default function ApplicantLayout({
                 onClick={() => setDropdownOpen((prev) => !prev)}
                 className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition"
               >
-                <div className="w-9 h-9 bg-blue-800 rounded-full flex items-center justify-center text-white border border-blue-600 font-bold text-sm">
-                  {getInitials(profileUser?.userId?.name || "")}
-                </div>
+                {/* Profile Image or Initials Avatar */}
+                {DEMO_USER.profileImage ? (
+                  <img
+                    src={DEMO_USER.profileImage}
+                    alt="Profile"
+                    className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                  />
+                ) : (
+                  <div className="w-9 h-9 bg-blue-200 rounded-full flex items-center justify-center text-black font-bold text-sm">
+                    {getInitials(DEMO_USER.name)}
+                  </div>
+                )}
 
                 <div className="flex flex-col text-left">
                   <span className="text-sm font-bold text-gray-800">
-                    {loading ? "Loading..." : profileUser?.userId?.name}
+                    {DEMO_USER.name}
                   </span>
 
                   <span className="text-xs text-gray-500">
-                    {profileUser?.userId?.email}
+                    {DEMO_USER.email}
                   </span>
                 </div>
 
@@ -184,7 +179,6 @@ export default function ApplicantLayout({
               className="relative w-10 h-10 flex items-center justify-center rounded-md hover:bg-gray-100 transition"
               aria-label="Toggle menu"
             >
-              {/* top line */}
               <span
                 className={`absolute h-0.5 w-5 bg-gray-700 rounded transition-all duration-300 ${
                   mobileMenuOpen
@@ -193,14 +187,12 @@ export default function ApplicantLayout({
                 }`}
               />
 
-              {/* middle line */}
               <span
                 className={`absolute h-0.5 w-5 bg-gray-700 rounded transition-all duration-300 ${
                   mobileMenuOpen ? "opacity-0" : "opacity-100"
                 }`}
               />
 
-              {/* bottom line */}
               <span
                 className={`absolute h-0.5 w-5 bg-gray-700 rounded transition-all duration-300 ${
                   mobileMenuOpen
@@ -219,26 +211,32 @@ export default function ApplicantLayout({
                 : "opacity-0 scale-y-95 -translate-y-2 pointer-events-none"
             }`}
           >
-            {/* Profile */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-800 rounded-full flex items-center justify-center text-white border border-blue-600 font-bold text-sm shrink-0">
-                {getInitials(profileUser?.userId?.name || "")}
-              </div>
+              {DEMO_USER.profileImage ? (
+                <img
+                  src={DEMO_USER.profileImage}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full object-cover border border-gray-200 shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-blue-800 rounded-full flex items-center justify-center text-white border border-blue-600 font-bold text-sm shrink-0">
+                  {getInitials(DEMO_USER.name)}
+                </div>
+              )}
 
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-bold text-gray-800 truncate">
-                  {loading ? "Loading..." : profileUser?.userId?.name}
+                  {DEMO_USER.name}
                 </span>
 
                 <span className="text-xs text-gray-500 truncate">
-                  {profileUser?.userId?.email}
+                  {DEMO_USER.email}
                 </span>
               </div>
             </div>
 
             <hr className="border-gray-200 mb-3" />
 
-            {/* Logout */}
             <button
               onClick={handleLogout}
               disabled={loggingOut}
