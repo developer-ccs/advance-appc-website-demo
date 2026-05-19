@@ -164,20 +164,20 @@ export function Navbar() {
   };
 
   return (
-    <nav className="bg-[#0a3675] sticky top-0 z-50 shadow w-full flex h-12">
+    <nav className="bg-[#062045] sticky top-0 z-50 shadow w-full flex h-12">
       {/* LEFT SECTION - Main Navigation */}
       <div className="flex-1 h-full flex items-center pl-2">
         {/* Mobile/Tablet menu button */}
         <button
           type="button"
-          className="xl:hidden text-white p-1 rounded-md hover:bg-white/10 transition"
+          className="lg:hidden text-white p-1 rounded-md hover:bg-white/10 transition"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
           {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
 
         {/* Desktop Navigation */}
-        <ul className="hidden xl:flex items-center gap-1 2xl:gap-2">
+        <ul className="hidden lg:flex items-center gap-1 2xl:gap-2">
           {navLinks.map((link) => (
             <li key={link.label} className="relative group">
               {link.dropdown ? (
@@ -230,10 +230,10 @@ export function Navbar() {
       </div>
 
       {/* RIGHT SECTION - Login Area */}
-      <div className="group bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-l-sm h-full flex items-center shrink-0 pl-1 shadow-[-4px_0_10px_rgba(0,0,0,0.05)] transition-colors duration-200 cursor-pointer">
+      <div className="group bg-[#ffcc00] rounded-sm h-full flex items-center shrink-0 pl-1 shadow-[-4px_0_10px_rgba(0,0,0,0.05)] transition-colors duration-200 cursor-pointer">
         <div>
           <button
-            className="flex items-center gap-2 cursor-pointer text-[#0a3675] group-hover:text-[#082a5a] px-4 h-full rounded font-semibold transition-all duration-200 text-sm md:text-base whitespace-nowrap"
+            className="flex items-center gap-2 cursor-pointer px-4 h-full rounded font-semibold transition-all duration-200 text-sm md:text-base whitespace-nowrap"
             onClick={() => setLoginOpen(true)}
           >
             <LogIn size={18} />

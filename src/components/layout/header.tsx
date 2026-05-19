@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sun, Moon } from "lucide-react"; // Imported icons for the theme toggle
+import { Sun, Moon, Search, Volume2, Globe } from "lucide-react";
 import digitalIndiaLogo from "@/../public/logos/digital-india.svg";
 import swasthBharatLogo from "@/../public/logos/swasth-bharat.svg";
 import arunachalLogo from "@/../public/logos/arunachal-logo.png";
@@ -47,6 +47,13 @@ export default function Header({
     return `${hours.toString().padStart(2, "0")}:${minutes}:${seconds} ${ampm}`;
   };
 
+  const formatDateForPill = (date: Date) => {
+    const d = date.getDate().toString().padStart(2, "0");
+    const m = (date.getMonth() + 1).toString().padStart(2, "0");
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  };
+
   // Toggle Theme Function
   const toggleTheme = () => {
     if (theme === "light") {
@@ -59,32 +66,32 @@ export default function Header({
   };
 
   return (
-    <>
-      {/* Top Government Header */}
-      <div className="hidden md:flex flex-wrap w-full bg-white text-black text-[clamp(0.65rem,0.75vw,0.8rem)] px-[clamp(8px,2vw,24px)] justify-between items-center border-b border-black/10 transition-all">
-        <div className="flex items-center flex-wrap gap-1">
+    <header className="w-full flex flex-col font-sans shadow-md transition-colors duration-300">
+      {/* --- UTILITY BAR (Light Gray Strip below Main Header) --- */}
+      <div className="w-full bg-[#f4f6f9] border-b border-gray-300 text-[#062045] text-[clamp(0.65rem,0.75vw,0.8rem)] px-[clamp(8px,2vw,24px)] flex items-center justify-between transition-colors duration-300">
+        {/* Left Section: Government Links */}
+        <div className="hidden md:flex items-center flex-wrap gap-1 shrink-0 font-medium">
           <Link
             href="https://arunachalpradesh.gov.in"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-red-600 whitespace-nowrap text-xs transition-colors min-h-8 flex items-center px-2"
+            className=" hover:text-red-600 whitespace-nowrap transition-colors min-h-8 flex items-center px-2"
           >
             Government of Arunachal Pradesh
           </Link>
-
-          <span className="text-xs text-gray-400">|</span>
-
+          <span className="text-gray-400">|</span>
           <Link
             href="https://pci.gov.in"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-red-600 whitespace-nowrap text-xs transition-colors min-h-8 flex items-center px-2"
+            className=" hover:text-red-600 whitespace-nowrap transition-colors min-h-8 flex items-center px-2"
           >
             Pharmacy Council of India
           </Link>
         </div>
-        {/* Left Section - Notification Marquee */}
-        <div className="flex-1 overflow-hidden whitespace-nowrap flex items-center h-8 pr-4">
+
+        {/* Center Section: Marquee */}
+        <div className="flex-1 overflow-hidden whitespace-nowrap flex items-center h-8 px-4 mx-2">
           <style>{`
             @keyframes marquee {
               0% { transform: translateX(100%); }
@@ -100,7 +107,7 @@ export default function Header({
             }
           `}</style>
           <div className="animate-marquee cursor-pointer">
-            <span className="text-red-600 dark:text-red-400 font-medium tracking-wide">
+            <span className="text-red-600 font-medium tracking-wide">
               Important Notification: Registration renewals for 2025 are now
               open. Please complete your KYC updates before the deadline. |
               Upcoming Council meeting is scheduled for next week. | New
@@ -111,145 +118,183 @@ export default function Header({
           </div>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center flex-wrap gap-1 shrink-0">
+        {/* Right Section: Controls */}
+        <div className="flex items-center flex-wrap gap-2 shrink-0 font-medium">
+          {/* Screen Reader Access */}
+          <button
+            className="hover:text-red-600 cursor-pointer transition-colors flex items-center gap-1 h-8"
+            title="Screen Reader Access"
+            aria-label="Screen Reader Access"
+            onClick={() => {
+              // Add your screen reader logic here
+              console.log("Screen reader activated");
+            }}
+          >
+            <Volume2 size={16} />
+            <span className="hidden lg:block text-xs">Screen Reader</span>
+          </button>
+
+          <span className="text-gray-400 hidden sm:block">|</span>
+
           {/* Font Controls */}
-          <div className="flex items-center text-xs">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => changeFontSize(-1)}
-              className="hover:text-red-600 dark:hover:text-red-400 cursor-pointer transition-colors min-w-8 min-h-8 flex items-center justify-center"
+              className="hover:text-red-600 cursor-pointer transition-colors w-7 h-8 flex items-center justify-center"
               title="Decrease Font Size"
             >
               A-
             </button>
             <button
               onClick={() => changeFontSize(0)}
-              className="hover:text-red-600 dark:hover:text-red-400 cursor-pointer transition-colors min-w-8 min-h-8 flex items-center justify-center"
+              className="hover:text-red-600 cursor-pointer transition-colors w-7 h-8 flex items-center justify-center"
               title="Normal Font Size"
             >
               A
             </button>
             <button
               onClick={() => changeFontSize(1)}
-              className="hover:text-red-600 dark:hover:text-red-400 cursor-pointer transition-colors min-w-8 min-h-8 flex items-center justify-center"
+              className="hover:text-red-600 cursor-pointer transition-colors w-7 h-8 flex items-center justify-center"
               title="Increase Font Size"
             >
               A+
             </button>
           </div>
 
-          {/* Divider */}
-          <span className="text-xs text-gray-400 dark:text-gray-500 mx-1">
-            |
-          </span>
+          <span className="text-gray-400 hidden sm:block">|</span>
 
           {/* Theme Toggle Button */}
           {mounted && (
             <button
               onClick={toggleTheme}
-              className="hover:text-red-600 dark:hover:text-red-400 cursor-pointer transition-colors min-w-8 min-h-8 flex items-center justify-center"
+              className="hover:text-red-600 cursor-pointer transition-colors w-7 h-8 flex items-center justify-center"
               title={
                 theme === "light"
                   ? "Switch to Dark Mode"
                   : "Switch to Light Mode"
               }
             >
-              {theme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+              {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
             </button>
           )}
+
+          <span className="text-gray-400 hidden sm:block">|</span>
+
+          {/* Language Selector */}
+          <div className="flex items-center gap-1 h-8 cursor-pointer hover:text-red-600 transition-colors">
+            <Globe size={14} className="hidden sm:block" />
+            <select
+              className="bg-transparent border-none outline-none cursor-pointer text-inherit font-medium appearance-none pr-1"
+              title="Select Language"
+              onChange={(e) => {
+                // Add your language change logic here
+                console.log("Language changed to:", e.target.value);
+              }}
+            >
+              <option value="en" className="text-black">
+                English
+              </option>
+              <option value="hi" className="text-black">
+                हिन्दी
+              </option>
+            </select>
+          </div>
         </div>
       </div>
+      {/* --- TOP MAIN SECTION (Slanted Design) --- */}
+      <div className="relative w-full bg-[#062045] overflow-hidden min-h-25 md:min-h-30 flex items-center transition-colors duration-300">
+        {/* Slanted Background */}
+        <div className="absolute top-0 left-0 h-full w-full md:w-[70%] lg:w-[70%] xl:w-[60%] 2xl:w-[55%] bg-blue-100 md:[clip-path:polygon(0_0,100%_0,calc(100%-4rem)_100%,0_100%)]"></div>
 
-      {/* Main Header */}
-      <header className="bg-[#062045] shadow-lg text-white w-full">
-        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between flex-wrap">
-          {/* LEFT SECTION */}
-          <div className="flex items-center gap-3 md:gap-4">
+        <div className="relative z-10 w-full max-w-full mx-auto px-3 flex flex-col md:flex-row justify-between items-center">
+          {/* LEFT: Logos & Titles (Kept side-by-side with strict items-center) */}
+          <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
             <ProtectedImage
               src={emblemLogo}
               alt="National Emblem"
               width={80}
               height={80}
-              className="hidden sm:block h-12 md:h-16 lg:h-17 w-auto shrink-0"
+              // Slightly smaller on mobile so it centers perfectly with the text
+              className="h-10 md:h-16 lg:h-20 w-auto shrink-0 brightness-0"
               priority={false}
             />
 
-            <div className="hidden sm:block h-12 md:h-14 w-px bg-white/40"></div>
+            <div className="hidden sm:block h-10 md:h-16 w-px bg-gray-400 shrink-0"></div>
 
-            <div className="relative w-12 h-12 md:w-16 md:h-16 lg:w-18 lg:h-18 shrink-0">
-              <div className="absolute inset-1 md:inset-2 bg-white blur-sm opacity-90 rounded-full"></div>
+            <div className="relative w-10 h-10 md:w-16 md:h-16 lg:w-20 lg:h-20 shrink-0">
               <ProtectedImage
                 src={appcLogo}
                 alt="APPC Logo"
-                width={68}
-                height={68}
-                sizes="(max-width: 768px) 48px, (max-width: 1024px) 64px, 72px"
-                quality={60}
-                className="object-contain relative z-10 h-12 md:h-16 lg:h-17 w-auto"
+                width={80}
+                height={80}
+                sizes="(max-width: 768px) 40px, (max-width: 1024px) 64px, 80px"
+                quality={80}
+                className="object-contain relative z-10 h-full w-full"
                 priority
               />
             </div>
 
-            <div className="flex flex-col justify-center">
-              <h1 className="text-base md:text-lg lg:text-xl font-semibold leading-tight">
+            {/* Text perfectly vertically centered next to the logos */}
+            <div className="flex flex-col justify-center flex-1">
+              <h1 className="text-lg md:text-xl lg:text-[24px] font-bold leading-tight text-[#062045] tracking-wide">
                 Arunachal Pradesh Pharmacy Council
               </h1>
-              <p className="text-cyan-400 text-xs md:text-sm lg:text-md mt-0.5">
+              <p className="text-[#475569] text-[10px] md:text-xs lg:text-sm font-medium uppercase tracking-wider">
                 Constituted under the Pharmacy Act 1948
               </p>
             </div>
           </div>
 
-          {/* RIGHT SECTION */}
-          <div className="flex items-center gap-4 md:gap-6 ml-auto">
-            {/* DATE + TIME */}
-            <div className="hidden sm:flex flex-col items-center">
-              <div className="flex items-center text-[16px]">
-                {[
-                  currentTime.getDate().toString().padStart(2, "0"),
-                  (currentTime.getMonth() + 1).toString().padStart(2, "0"),
-                  currentTime.getFullYear().toString().slice(-2),
-                ].map((val, index) => (
-                  <div key={index} className="flex items-center">
-                    <div className="px-2 py-1 rounded bg-white/10">{val}</div>
-                    {index < 2 && <span className="mx-1">/</span>}
-                  </div>
-                ))}
+          {/* RIGHT: Buttons, Search, Time Pill, Logos */}
+          <div className="flex flex-col items-center md:items-end gap-3 w-full md:w-auto">
+            {/* Top Row: Skip Content, Search, Time */}
+            <div className="flex flex-wrap justify-center md:justify-end items-center gap-3 w-full">
+              <div className="hidden lg:flex items-center gap-3 shrink-0">
+                <div className="flex items-center bg-[#152e55] border border-[#2a4575] rounded px-2 py-1.5">
+                  <Search size={14} className="text-gray-400 mr-2" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    className="bg-transparent text-white text-[11px] outline-none w-28 placeholder-gray-400"
+                  />
+                </div>
               </div>
 
-              <span className="text-[21px]" suppressHydrationWarning>
-                {formatTime(currentTime)}
-              </span>
+              {/* YELLOW TIME PILL */}
+              <div className="hidden md:block bg-[#ffcc00] text-[12px] md:text-[13px] font-bold px-3 py-1.5 rounded shrink-0 shadow-sm">
+                <span suppressHydrationWarning>
+                  {formatDateForPill(currentTime)}, {formatTime(currentTime)}
+                </span>
+              </div>
             </div>
 
-            {/* LOGOS (Only Desktop) */}
-            <div className="hidden lg:flex items-center gap-4 shrink-0">
+            {/* Bottom Row: Right-aligned Govt Logos */}
+            <div className="hidden md:flex items-center gap-4 shrink-0 justify-end mt-1">
               <ProtectedImage
                 src={digitalIndiaLogo}
                 alt="Digital India"
-                height={50}
+                height={40}
                 width={0}
-                className="h-10 xl:h-13 w-auto"
+                className="h-8 md:h-10 lg:h-11 w-auto object-contain"
               />
               <ProtectedImage
                 src={swasthBharatLogo}
                 alt="Swasth Bharat"
-                height={50}
+                height={40}
                 width={0}
-                className="h-10 xl:h-13 w-auto"
+                className="h-8 md:h-10 lg:h-11 w-auto object-contain"
               />
               <ProtectedImage
                 src={arunachalLogo}
                 alt="Arunachal Pradesh Logo"
-                height={50}
+                height={40}
                 width={0}
-                style={{ width: "auto" }}
-                className="h-10 xl:h-13 w-auto"
+                className="h-8 md:h-10 lg:h-11 w-auto object-contain"
               />
             </div>
           </div>
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   );
 }
