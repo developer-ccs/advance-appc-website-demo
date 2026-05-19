@@ -214,14 +214,13 @@ export default function Header({
               alt="National Emblem"
               width={80}
               height={80}
-              // Slightly smaller on mobile so it centers perfectly with the text
-              className="h-10 md:h-16 lg:h-20 w-auto shrink-0 brightness-0"
+              className="hidden md:block h-10 md:h-16 lg:h-20 w-auto shrink-0 brightness-0"
               priority
             />
 
-            <div className="hidden sm:block h-10 md:h-16 w-px bg-gray-400 shrink-0"></div>
+            <div className="hidden md:block h-10 md:h-16 w-px bg-gray-400 shrink-0"></div>
 
-            <div className="relative w-10 h-10 md:w-16 md:h-16 lg:w-20 lg:h-20 shrink-0">
+            <div className="relative w-14 h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 shrink-0">
               <ProtectedImage
                 src={appcLogo}
                 alt="APPC Logo"
@@ -229,7 +228,7 @@ export default function Header({
                 height={80}
                 sizes="(max-width: 768px) 40px, (max-width: 1024px) 64px, 80px"
                 quality={80}
-                className="object-contain relative z-10 h-full w-full"
+                className="h-14 md:h-16 lg:h-20 w-auto shrink-0 object-contain relative z-10"
                 priority
               />
             </div>
