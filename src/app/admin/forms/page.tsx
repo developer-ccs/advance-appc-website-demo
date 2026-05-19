@@ -1,6 +1,5 @@
 "use client";
 
-import { AxiosError } from "axios";
 import {
   Eye,
   FileText,
@@ -12,18 +11,13 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiClient } from "@/lib/axios-instance";
-import {
-  useFormsStore,
-  SECTION_OPTIONS,
-  sectionLabel,
-  ALLOWED_SECTIONS,
-} from "@/store/formsStore";
 import { useToast } from "@/components/ui/ToastContext";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialogContext";
 
 import CustomLoader from "@/components/ui/CustomLoader";
 import { usePageLoader } from "@/hooks/usePageLoader";
+
+// ─── Types & Mock Data ────────────────────────────────────────────────────────
 
 interface PdfRecord {
   _id: string;
@@ -34,93 +28,106 @@ interface PdfRecord {
   fileSize: number;
   createdAt: string;
   isNew?: boolean;
+  userId?: { name: string };
 }
 
-interface ApiResponse<T> {
-  success: boolean;
-  statusCode: number;
-  message: string;
-  data: T;
-}
+const SECTION_OPTIONS = [
+  { label: "Registration", value: "registration" },
+  { label: "Renewal", value: "renewal" },
+  { label: "Reciprocal", value: "reciprocal" },
+  { label: "General Guidelines", value: "guidelines" },
+];
 
-interface PdfsData {
-  pdfs: PdfRecord[];
-  totalCount: number;
-  sectionCountTotal: number;
-  sectionWiseCounts: { _id: string; count: number }[];
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    limit: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
-}
+const ALLOWED_SECTIONS = [
+  "registration",
+  "renewal",
+  "reciprocal",
+  "guidelines",
+];
+
+const sectionLabel = (val: string) =>
+  SECTION_OPTIONS.find((o) => o.value === val)?.label || val;
+
+const generateMockData = (): PdfRecord[] =>
+  Array.from({ length: 35 }).map((_, i) => ({
+    _id: `form-doc-${i + 1}`,
+    title: `Standard Application Form ${i + 1}`,
+    section: ALLOWED_SECTIONS[i % ALLOWED_SECTIONS.length],
+    fileUrl: "#demo-pdf",
+    fileName: `application_form_${i + 1}.pdf`,
+    fileSize: 1024 * Math.floor(Math.random() * 5000 + 500),
+    createdAt: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
+    isNew: i < 3,
+    userId: { name: i % 2 === 0 ? "System Admin" : "Moderator" },
+  }));
+
+let MOCK_DB = generateMockData();
 
 const ITEMS_PER_PAGE = 10;
 
-const getErrorMessage = (err: unknown): string => {
-  if (err instanceof AxiosError) {
-    return err.response?.data?.message ?? err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Something went wrong";
-};
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function FormsPage() {
-  const {
-    forms,
-    loading,
-    search,
-    currentPage,
-    totalCount,
-    pagination,
-    isUploading,
-    uploading,
-    uploadForm,
-    uploadFile,
-    editTarget,
-    editForm,
-    editFile,
-    editSaving,
-    setForms,
-    setLoading,
-    setSearch,
-    setCurrentPage,
-    setIsUploading,
-    setUploading,
-    updateUploadForm,
-    setUploadFile,
-    resetUploadForm,
-    setEditTarget,
-    setEditForm,
-    updateEditForm,
-    setEditFile,
-    setEditSaving,
-    resetEditForm,
-    removeForm,
-  } = useFormsStore();
-
   const { showToast } = useToast();
   const { showConfirm } = useConfirmDialog();
 
   const uploadFileRef = useRef<HTMLInputElement>(null);
   const editFileRef = useRef<HTMLInputElement>(null);
 
+  // Local State representing the Database
+  const [allData, setAllData] = useState<PdfRecord[]>(MOCK_DB);
+
+  // Table & Filter State
+  const [forms, setForms] = useState<PdfRecord[]>([]);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    limit: ITEMS_PER_PAGE,
+    hasNextPage: false,
+    hasPrevPage: false,
+    totalCount: 0,
+  });
+
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const { isLoading: isPageLoading } = usePageLoader([isInitialLoad]);
 
-  // Debounced search state
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  // Upload State
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    title: "",
+    section: "registration",
+  });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
-  // ─── Component Lifecycle (Page Change) ───────────────────────────────────────
+  // Edit State
+  const [editTarget, setEditTarget] = useState<PdfRecord | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    section: "registration",
+  });
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
-  useEffect(() => {
-    // Clear search content when navigating away from this page
-    return () => {
-      setSearch("");
-    };
-  }, [setSearch]);
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+  const updateUploadForm = (data: Partial<typeof uploadForm>) =>
+    setUploadForm((prev) => ({ ...prev, ...data }));
+  const resetUploadForm = () => {
+    setUploadForm({ title: "", section: "registration" });
+    setUploadFile(null);
+  };
+
+  const updateEditForm = (data: Partial<typeof editForm>) =>
+    setEditForm((prev) => ({ ...prev, ...data }));
+  const resetEditForm = () => {
+    setEditForm({ title: "", section: "registration" });
+    setEditFile(null);
+  };
 
   // ─── Debounce Effect ─────────────────────────────────────────────────────────
 
@@ -132,83 +139,95 @@ export default function FormsPage() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, debouncedSearch, setCurrentPage]);
+  }, [search, debouncedSearch]);
 
-  // ─── Fetch (page + search driven) ──────────────────────────────────────────
+  // ─── Fetch (Simulated API) ───────────────────────────────────────────────────
 
-  const fetchForms = useCallback(async () => {
+  const fetchForms = useCallback(() => {
     setLoading(true);
     // 600ms delay to prevent fast flickering on table inline loading
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    try {
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(ITEMS_PER_PAGE),
-        section: ALLOWED_SECTIONS.join(","),
-      });
+    setTimeout(() => {
+      let filtered = allData.filter((f) =>
+        ALLOWED_SECTIONS.includes(f.section),
+      );
 
       if (debouncedSearch.trim()) {
-        params.set("search", debouncedSearch.trim());
+        const query = debouncedSearch.toLowerCase();
+        filtered = filtered.filter((f) =>
+          f.title.toLowerCase().includes(query),
+        );
       }
 
-      const { data } = await apiClient.get<ApiResponse<PdfsData>>(
-        `/upload/pdfs?${params.toString()}`,
-      );
+      const totalCount = filtered.length;
+      const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
+      const safePage = Math.min(currentPage, totalPages);
 
-      setForms(
-        data.data?.pdfs ?? [],
-        data.data.pagination,
-        data.data.sectionCountTotal ?? 0,
-      );
-    } catch (err) {
-      showToast(getErrorMessage(err), "error");
-    } finally {
+      if (safePage !== currentPage && safePage > 0) {
+        setCurrentPage(safePage);
+        return;
+      }
+
+      const start = (safePage - 1) * ITEMS_PER_PAGE;
+      const paginatedData = filtered.slice(start, start + ITEMS_PER_PAGE);
+
+      setForms(paginatedData);
+      setPagination({
+        currentPage: safePage,
+        totalPages,
+        limit: ITEMS_PER_PAGE,
+        hasNextPage: safePage < totalPages,
+        hasPrevPage: safePage > 1,
+        totalCount,
+      });
+
       setLoading(false);
       setIsInitialLoad(false);
-    }
-  }, [currentPage, debouncedSearch, setForms, setLoading, showToast]);
+    }, 600);
+  }, [allData, currentPage, debouncedSearch]);
 
   // Re-fetch whenever page or search changes
   useEffect(() => {
     fetchForms();
   }, [fetchForms]);
 
-  // ─── Upload ─────────────────────────────────────────────────────────────────
+  // ─── Upload (Simulated API) ──────────────────────────────────────────────────
 
-  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUpload = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!uploadFile) return;
 
-    const fd = new FormData();
-    fd.append("title", uploadForm.title.trim());
-    fd.append("section", uploadForm.section);
-    fd.append("pdf", uploadFile);
-
     setUploading(true);
 
-    try {
-      const { data } = await apiClient.post<ApiResponse<PdfRecord>>(
-        "/upload/pdfs",
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } },
-      );
+    setTimeout(() => {
+      const newRecord: PdfRecord = {
+        _id: `form-new-${Date.now()}`,
+        title: uploadForm.title.trim(),
+        section: uploadForm.section,
+        fileUrl: "#demo-file",
+        fileName: uploadFile.name,
+        fileSize: uploadFile.size,
+        createdAt: new Date().toISOString(),
+        isNew: true,
+        userId: { name: "System Admin" },
+      };
+
+      setAllData((prev) => [newRecord, ...prev]);
 
       showToast(
-        `"${uploadForm.section.trim()}" has been uploaded successfully!`,
+        `[Demo] "${sectionLabel(
+          uploadForm.section,
+        )}" has been uploaded successfully!`,
         "success",
       );
+
       resetUploadForm();
       setIsUploading(false);
       if (uploadFileRef.current) uploadFileRef.current.value = "";
-      fetchForms();
-    } catch (err) {
-      showToast(getErrorMessage(err), "error");
-    } finally {
       setUploading(false);
-    }
+    }, 800);
   };
 
-  // ─── Edit ───────────────────────────────────────────────────────────────────
+  // ─── Edit (Simulated API) ────────────────────────────────────────────────────
 
   const openEdit = (form: PdfRecord) => {
     setEditTarget(form);
@@ -218,71 +237,57 @@ export default function FormsPage() {
     if (editFileRef.current) editFileRef.current.value = "";
   };
 
-  const handleEditSave = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEditSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editTarget) return;
 
-    const fd = new FormData();
-    if (editForm.title.trim() !== editTarget.title)
-      fd.append("title", editForm.title.trim());
-    if (editForm.section !== editTarget.section)
-      fd.append("section", editForm.section);
-    if (editFile) fd.append("pdf", editFile);
-    if ([...fd.entries()].length === 0) {
-      setEditTarget(null);
-      resetEditForm();
-      return;
-    }
-
     setEditSaving(true);
 
-    try {
-      const { data } = await apiClient.put<ApiResponse<PdfRecord>>(
-        `/upload/pdfs/${editTarget._id}`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } },
+    setTimeout(() => {
+      setAllData((prev) =>
+        prev.map((f) =>
+          f._id === editTarget._id
+            ? {
+                ...f,
+                title: editForm.title.trim() || f.title,
+                section: editForm.section,
+                fileName: editFile ? editFile.name : f.fileName,
+                fileSize: editFile ? editFile.size : f.fileSize,
+              }
+            : f,
+        ),
       );
 
       showToast(
-        `"${editTarget.section}" has been updated successfully!`,
+        `[Demo] "${sectionLabel(
+          editForm.section,
+        )}" has been updated successfully!`,
         "success",
       );
+
       setEditTarget(null);
       resetEditForm();
-      fetchForms();
-    } catch (err) {
-      showToast(getErrorMessage(err), "error");
-    } finally {
       setEditSaving(false);
-    }
+    }, 800);
   };
 
-  // ─── Delete ─────────────────────────────────────────────────────────────────
+  // ─── Delete (Simulated API) ──────────────────────────────────────────────────
 
-  const handleDelete = async (id: string) => {
-    const deletedTitle = forms.find((f) => f._id === id)?.section ?? "Form";
-    try {
-      const { data } = await apiClient.delete<ApiResponse<object>>(
-        `/upload/pdfs/${id}`,
+  const handleDelete = (id: string) => {
+    const deletedTitle = allData.find((f) => f._id === id)?.section ?? "Form";
+
+    setTimeout(() => {
+      setAllData((prev) => prev.filter((f) => f._id !== id));
+      showToast(
+        `[Demo] "${sectionLabel(deletedTitle)}" has been deleted successfully!`,
+        "success",
       );
-
-      showToast(`"${deletedTitle}" has been deleted successfully!`, "success");
-      removeForm(id);
-
-      // If we just deleted the last item on a page > 1, go back one page
-      if (forms.length === 1 && currentPage > 1) {
-        setCurrentPage(currentPage - 1);
-      } else {
-        fetchForms();
-      }
-    } catch (err) {
-      showToast(getErrorMessage(err), "error");
-    }
+    }, 500);
   };
 
   // ─── Pagination helpers ──────────────────────────────────────────────────────
 
-  const { totalPages, hasPrevPage, hasNextPage } = pagination;
+  const { totalPages, hasPrevPage, hasNextPage, totalCount } = pagination;
 
   // Show at most 5 page buttons around current page
   const pageButtons = (() => {
@@ -293,10 +298,6 @@ export default function FormsPage() {
   })();
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-
-  const filteredForms = forms.filter((f) =>
-    ALLOWED_SECTIONS.includes(f.section as any),
-  );
 
   return (
     <>
@@ -696,7 +697,7 @@ export default function FormsPage() {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="text-center py-14 text-gray-400"
                       >
                         <div className="flex flex-col items-center gap-2">
@@ -710,16 +711,16 @@ export default function FormsPage() {
                         </div>
                       </td>
                     </tr>
-                  ) : filteredForms.length === 0 ? (
+                  ) : forms.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-gray-400">
+                      <td colSpan={5} className="p-8 text-center text-gray-400">
                         {debouncedSearch
                           ? "No forms match your search."
                           : "No forms uploaded yet."}
                       </td>
                     </tr>
                   ) : (
-                    filteredForms.map((doc, index) => (
+                    forms.map((doc, index) => (
                       <tr
                         key={doc._id}
                         className={`hover:bg-gray-50 transition ${
@@ -739,9 +740,9 @@ export default function FormsPage() {
                             )}
                           </div>
                         </td>
-                        <td className="p-4 text-center">
-                          <span className=" px-2 py-1 text-xs font-bold">
-                            {sectionLabel(doc?.userId?.name ?? "N/A")}
+                        <td className="p-4 text-center text-gray-600">
+                          <span className="px-2 py-1 text-xs font-bold">
+                            {doc?.userId?.name ?? "N/A"}
                           </span>
                         </td>
                         <td className="p-4 text-center">
@@ -751,7 +752,9 @@ export default function FormsPage() {
                         </td>
                         <td className="p-4 text-center space-x-3">
                           <button
-                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                            onClick={() => {
+                              alert("[Demo] Viewing PDF Form");
+                            }}
                             className="text-emerald-600 hover:text-emerald-800 transition cursor-pointer"
                             title="View PDF"
                           >

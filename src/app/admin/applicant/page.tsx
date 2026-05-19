@@ -13,7 +13,6 @@ import {
   Trash2,
   AlertTriangle,
 } from "lucide-react";
-import { apiClient } from "@/lib/axios-instance";
 import CustomLoader from "@/components/ui/CustomLoader";
 import { usePageLoader } from "@/hooks/usePageLoader";
 import { useToast } from "@/components/ui/ToastContext";
@@ -53,6 +52,24 @@ interface Pagination {
   hasPrevPage: boolean;
 }
 
+// ─── DEMO DATA GENERATOR ──────────────────────────────────────────────────────
+
+let DEMO_STUDENTS: Student[] = Array.from({ length: 34 }).map((_, i) => ({
+  _id: `student-doc-${i + 1}`,
+  userId: {
+    _id: `user-id-${i + 1}`,
+    name: `Demo Student ${i + 1}`,
+    email: `student${i + 1}@example.com`,
+    phoneNumber: `+91 98765${(i + 1).toString().padStart(5, "0")}`,
+    createdAt: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
+    isVerified: true,
+  },
+  degree: "B.Pharm",
+  college: "Demo Pharmacy Institute",
+  passingYear: "2023",
+  address: "123 Demo Street, Tech City",
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDate = (dateStr: string | null | undefined) => {
@@ -62,17 +79,6 @@ const formatDate = (dateStr: string | null | undefined) => {
     month: "short",
     year: "numeric",
   });
-};
-
-const extractErrorMessage = (err: unknown, fallback: string): string => {
-  if (err && typeof err === "object") {
-    const axiosMsg = (err as { response?: { data?: { message?: string } } })
-      ?.response?.data?.message;
-    if (axiosMsg) return axiosMsg;
-    const errMsg = (err as { message?: string }).message;
-    if (errMsg) return errMsg;
-  }
-  return fallback;
 };
 
 const MAX_PAGES = 5;
@@ -159,6 +165,11 @@ const ViewStudentModal = ({
                   icon={<Phone size={14} />}
                 />
                 <Row
+                  label="Degree"
+                  value={student.degree || ""}
+                  icon={<User size={14} />}
+                />
+                <Row
                   label="Registered On"
                   value={formatDate(user?.createdAt)}
                   icon={<Calendar size={14} />}
@@ -188,7 +199,6 @@ const DeleteConfirmDialog = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-6">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100">
           <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
             <AlertTriangle size={20} className="text-red-600" />
@@ -202,19 +212,15 @@ const DeleteConfirmDialog = ({
             </p>
           </div>
         </div>
-
-        {/* Body */}
         <div className="px-5 py-4 sm:px-6 sm:py-5">
           <p className="text-sm text-gray-600 leading-relaxed">
             Are you sure you want to permanently delete{" "}
             <span className="font-semibold text-gray-900">
               {student.userId?.name || "this applicant"}
             </span>
-            ? Their profile and account will be removed from the platform.
+            ? Their profile and account will be removed.
           </p>
         </div>
-
-        {/* Actions */}
         <div className="flex gap-3 px-5 pb-5 sm:px-6 sm:pb-6">
           <button
             onClick={onCancel}
@@ -274,63 +280,76 @@ export default function ApplicantsPage() {
     isInitialLoad.current ? loading : false,
   ]);
 
+  // Simulated Demo Data Fetch
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = {
-        page: currentPage,
-        limit: 10,
-      };
-      if (search.trim()) params.search = search.trim();
-      const { data } = await apiClient.get("/admin/get-all-student", {
-        params,
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      // Filter Data Locally
+      let filteredData = [...DEMO_STUDENTS];
+      if (search.trim()) {
+        const query = search.toLowerCase();
+        filteredData = filteredData.filter(
+          (s) =>
+            s.userId.name?.toLowerCase().includes(query) ||
+            s.userId.email?.toLowerCase().includes(query),
+        );
+      }
+
+      // Pagination Logic Locally
+      const limit = 10;
+      const totalStudents = filteredData.length;
+      const totalPages = Math.ceil(totalStudents / limit) || 1;
+
+      // Auto-correct page if out of bounds due to deletion/search
+      const safePage = Math.min(currentPage, totalPages);
+      if (safePage !== currentPage && safePage > 0) {
+        setCurrentPage(safePage);
+        return; // Effect will re-trigger with new page
+      }
+
+      const startIndex = (safePage - 1) * limit;
+      const paginatedData = filteredData.slice(startIndex, startIndex + limit);
+
+      setStudents(paginatedData);
+      setPagination({
+        totalStudents,
+        totalPages,
+        currentPage: safePage,
+        limit,
+        hasNextPage: safePage < totalPages,
+        hasPrevPage: safePage > 1,
       });
-      setStudents(data.data.students);
-      setPagination(data.data.pagination);
     } catch (err: unknown) {
-      showToast(
-        extractErrorMessage(err, "Failed to fetch applicants."),
-        "error",
-      );
+      showToast("Failed to fetch demo applicants.", "error");
     } finally {
       setLoading(false);
     }
   }, [currentPage, search, showToast]);
 
+  // Simulated Delete Action
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
 
-    const userId = deleteTarget.userId?._id;
-    if (!userId) {
-      showToast("Invalid user ID. Cannot delete.", "error");
-      return;
-    }
-
     setIsDeleting(true);
     try {
-      await apiClient.delete(`/admin/users/${userId}`, {
-        params: { role: "student" },
-      });
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      // Remove from global DEMO_STUDENTS array
+      DEMO_STUDENTS = DEMO_STUDENTS.filter((s) => s._id !== deleteTarget._id);
+
       showToast(
-        `${deleteTarget.userId?.name || "Applicant"} has been deleted successfully.`,
+        `[Demo] ${deleteTarget.userId?.name || "Applicant"} has been deleted.`,
         "success",
       );
-      setDeleteTarget(null);
-      // If last item on page, go to previous page
-      if (students.length === 1 && currentPage > 1) {
-        setCurrentPage((prev) => prev - 1);
-      } else {
-        fetchStudents();
-      }
+
+      // Re-fetch to apply pagination/filters
+      fetchStudents();
     } catch (err: unknown) {
-      showToast(
-        extractErrorMessage(
-          err,
-          "Failed to delete applicant. Please try again.",
-        ),
-        "error",
-      );
-      setDeleteTarget(null);
+      showToast("Failed to delete demo applicant.", "error");
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
@@ -403,7 +422,7 @@ export default function ApplicantsPage() {
             <h2 className="text-xl sm:text-2xl font-serif font-bold text-blue-900">
               Applicants List
             </h2>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1 max-w-2xl mx-auto md:mx-0">
+            <p className="text-xs sm:text-sm text-gray-600 mt-1 mx-auto md:mx-0">
               View all students and applicants registered on the platform in one
               centralized directory with their details and activity.
             </p>
@@ -565,18 +584,18 @@ export default function ApplicantsPage() {
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={!pagination.hasPrevPage || isTableLoading}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 Previous
               </button>
 
-              {/* Page Numbers - Hidden on tiny screens to save space, visible on >sm */}
+              {/* Page Numbers */}
               <div className="hidden sm:flex gap-1.5">
                 {pages[0] > 1 && (
                   <>
                     <button
                       onClick={() => setCurrentPage(1)}
-                      className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center border rounded-md border-gray-300 bg-white text-gray-700 text-xs sm:text-sm hover:bg-gray-50 transition-colors"
+                      className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center border rounded-md border-gray-300 bg-white text-gray-700 text-xs sm:text-sm hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       1
                     </button>
@@ -593,7 +612,7 @@ export default function ApplicantsPage() {
                     key={page}
                     onClick={() => setCurrentPage(page)}
                     disabled={isTableLoading}
-                    className={`w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center border rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    className={`w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center border rounded-md text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                       currentPage === page
                         ? "bg-blue-900 text-white border-blue-900 shadow-sm"
                         : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
@@ -612,7 +631,7 @@ export default function ApplicantsPage() {
                     )}
                     <button
                       onClick={() => setCurrentPage(pagination.totalPages)}
-                      className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center border rounded-md border-gray-300 bg-white text-gray-700 text-xs sm:text-sm hover:bg-gray-50 transition-colors"
+                      className="w-8 sm:w-9 h-8 sm:h-9 flex items-center justify-center border rounded-md border-gray-300 bg-white text-gray-700 text-xs sm:text-sm hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       {pagination.totalPages}
                     </button>
@@ -623,7 +642,7 @@ export default function ApplicantsPage() {
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={!pagination.hasNextPage || isTableLoading}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
                 Next
               </button>

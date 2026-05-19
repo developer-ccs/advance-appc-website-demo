@@ -13,15 +13,55 @@ import {
   Eye,
   Trash2,
 } from "lucide-react";
-import { useCertificatesStore, Certificate } from "@/store/pharmacistStore";
 import { useToast } from "@/components/ui/ToastContext";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialogContext";
-import { apiClient } from "@/lib/axios-instance";
 import CustomLoader from "@/components/ui/CustomLoader";
 import { usePageLoader } from "@/hooks/usePageLoader";
 
-// Helpers
+// ─── Types & Mock Data ────────────────────────────────────────────────────────
+
 type CertificateStatus = "Active" | "Expired" | "Suspended";
+type CertificateType = "New" | "Renewal" | "Reciprocal";
+
+export interface Certificate {
+  _id: string;
+  registrationNumber: string;
+  ownerName: string;
+  email: string;
+  phoneNumber: string;
+  degree: string;
+  certificateType: CertificateType;
+  issueDate: string;
+  expiryDate: string;
+  status: CertificateStatus;
+  remarks?: string;
+  fileUrl?: string;
+  uploadedBy?: { name: string };
+}
+
+const generateMockData = (): Certificate[] =>
+  Array.from({ length: 45 }).map((_, i) => ({
+    _id: `cert-${i + 1}`,
+    registrationNumber: `APPC/2024/${(i + 1).toString().padStart(3, "0")}`,
+    ownerName: `Demo Pharmacist ${i + 1}`,
+    email: `pharmacist${i + 1}@example.com`,
+    phoneNumber: `+91 98765${(i + 1).toString().padStart(5, "0")}`,
+    degree: i % 3 === 0 ? "B.Pharm" : i % 2 === 0 ? "D.Pharm" : "Pharm.D",
+    certificateType:
+      i % 4 === 0 ? "Renewal" : i % 5 === 0 ? "Reciprocal" : "New",
+    issueDate: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
+    expiryDate: new Date(
+      Date.now() + Math.random() * 10000000000,
+    ).toISOString(),
+    status: i % 7 === 0 ? "Expired" : i % 11 === 0 ? "Suspended" : "Active",
+    remarks: i % 5 === 0 ? "Standard verification completed" : "",
+    fileUrl: "#demo-pdf",
+    uploadedBy: { name: "System Admin" },
+  }));
+
+let MOCK_DB = generateMockData();
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<CertificateStatus, string> = {
   Active: "bg-green-100 text-green-800 border-green-200",
@@ -55,17 +95,6 @@ const toInputDate = (dateStr: string | null | undefined): string => {
   return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
 };
 
-const extractErrorMessage = (err: unknown, fallback: string): string => {
-  if (err && typeof err === "object") {
-    const axiosMsg = (err as { response?: { data?: { message?: string } } })
-      ?.response?.data?.message;
-    if (axiosMsg) return axiosMsg;
-    const errMsg = (err as { message?: string }).message;
-    if (errMsg) return errMsg;
-  }
-  return fallback;
-};
-
 const MAX_PAGES = 5;
 const getPagesToShow = (current: number, total: number): number[] => {
   if (total <= MAX_PAGES) return Array.from({ length: total }, (_, i) => i + 1);
@@ -76,8 +105,7 @@ const getPagesToShow = (current: number, total: number): number[] => {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 };
 
-// Type-specific success messages
-const ADD_SUCCESS_MESSAGES: Record<"New" | "Renewal" | "Reciprocal", string> = {
+const ADD_SUCCESS_MESSAGES: Record<CertificateType, string> = {
   New: "New pharmacist registered successfully!",
   Renewal: "Pharmacist renewed successfully!",
   Reciprocal: "Reciprocal pharmacist added successfully!",
@@ -87,19 +115,32 @@ const inputCls =
   "w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900";
 const labelCls = "block text-xs font-semibold text-gray-600 mb-1";
 
-// Add Modal
-const AddCertificateModal = () => {
-  const {
-    addForm,
-    isSaving,
-    updateAddForm,
-    closeAddModal,
-    addCertificate,
-    setError,
-  } = useCertificatesStore();
+// ─── Add Modal ────────────────────────────────────────────────────────────────
+
+const AddCertificateModal = ({
+  onClose,
+  onAdd,
+}: {
+  onClose: () => void;
+  onAdd: (cert: Partial<Certificate>) => Promise<void>;
+}) => {
   const { showToast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [addForm, setAddForm] = useState({
+    certificateType: "New" as CertificateType,
+    registrationNumber: "",
+    ownerName: "",
+    email: "",
+    phoneNumber: "",
+    degree: "",
+    issueDate: "",
+    expiryDate: "",
+    remarks: "",
+    certificate: null as File | null,
+  });
+
+  const [isSaving, setIsSaving] = useState(false);
   const [searchRegNo, setSearchRegNo] = useState("");
   const [isSearchingReg, setIsSearchingReg] = useState(false);
   const [searchRegError, setSearchRegError] = useState<string | null>(null);
@@ -110,7 +151,11 @@ const AddCertificateModal = () => {
   const [searchEmailError, setSearchEmailError] = useState<string | null>(null);
   const [prefilledEmail, setPrefilledEmail] = useState(false);
 
-  const handleTypeChange = (type: "New" | "Renewal" | "Reciprocal") => {
+  const updateAddForm = (data: Partial<typeof addForm>) => {
+    setAddForm((prev) => ({ ...prev, ...data }));
+  };
+
+  const handleTypeChange = (type: CertificateType) => {
     updateAddForm({ certificateType: type });
     setSearchRegNo("");
     setSearchRegError(null);
@@ -129,26 +174,26 @@ const AddCertificateModal = () => {
     setIsSearchingReg(true);
     setSearchRegError(null);
     setPrefilledReg(false);
-    try {
-      const { data } = await apiClient.get(
-        `/upload/get-certificate-details/${encodeURIComponent(trimmed)}`,
-      );
-      const cert = data.data;
-      updateAddForm({
-        registrationNumber: cert.registrationNumber,
-        ownerName: cert.ownerName,
-        email: cert.email,
-        phoneNumber: cert.phoneNumber,
-        degree: cert.degree,
-        issueDate: "",
-        expiryDate: "",
-      });
-      setPrefilledReg(true);
-    } catch (err: unknown) {
-      setSearchRegError(extractErrorMessage(err, "Certificate not found"));
-    } finally {
+
+    // Mock API call
+    setTimeout(() => {
+      const found = MOCK_DB.find((c) => c.registrationNumber === trimmed);
+      if (found) {
+        updateAddForm({
+          registrationNumber: found.registrationNumber,
+          ownerName: found.ownerName,
+          email: found.email,
+          phoneNumber: found.phoneNumber,
+          degree: found.degree,
+          issueDate: "",
+          expiryDate: "",
+        });
+        setPrefilledReg(true);
+      } else {
+        setSearchRegError("Demo Certificate not found");
+      }
       setIsSearchingReg(false);
-    }
+    }, 600);
   };
 
   const handleEmailSearch = async () => {
@@ -160,25 +205,50 @@ const AddCertificateModal = () => {
     setIsSearchingEmail(true);
     setSearchEmailError(null);
     setPrefilledEmail(false);
-    try {
-      const { data } = await apiClient.get(
-        `/global/student-details-with-email`,
-        { params: { email: trimmed } },
-      );
-      const student = data.data;
-      updateAddForm({
-        ownerName: student.name,
-        email: student.email,
-        phoneNumber: student.phoneNumber,
-        registrationNumber: "",
-        issueDate: "",
-        expiryDate: "",
-      });
-      setPrefilledEmail(true);
-    } catch (err: unknown) {
-      setSearchEmailError(extractErrorMessage(err, "Student not found"));
-    } finally {
+
+    // Mock API call
+    setTimeout(() => {
+      const found = MOCK_DB.find((c) => c.email.toLowerCase() === trimmed);
+      if (found) {
+        updateAddForm({
+          ownerName: found.ownerName,
+          email: found.email,
+          phoneNumber: found.phoneNumber,
+          registrationNumber: "",
+          issueDate: "",
+          expiryDate: "",
+        });
+        setPrefilledEmail(true);
+      } else {
+        setSearchEmailError("Demo Student not found");
+      }
       setIsSearchingEmail(false);
+    }, 600);
+  };
+
+  const handleSave = async () => {
+    if (
+      !addForm.registrationNumber ||
+      !addForm.ownerName ||
+      !addForm.email ||
+      !addForm.phoneNumber ||
+      !addForm.degree ||
+      !addForm.issueDate ||
+      !addForm.certificate
+    ) {
+      showToast("Please fill all required fields and upload PDF.", "error");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onAdd(addForm);
+      showToast(ADD_SUCCESS_MESSAGES[addForm.certificateType], "success");
+      onClose();
+    } catch (error) {
+      showToast("Failed to save demo certificate.", "error");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -187,10 +257,10 @@ const AddCertificateModal = () => {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
           <h3 className="text-lg font-serif font-bold text-blue-900">
-            Add Pharmacist Details
+            Add Pharmacist Details (Demo)
           </h3>
           <button
-            onClick={closeAddModal}
+            onClick={onClose}
             disabled={isSaving}
             className="text-gray-400 hover:text-gray-600 cursor-pointer"
           >
@@ -497,7 +567,6 @@ const AddCertificateModal = () => {
                   return;
                 }
                 updateAddForm({ certificate: f });
-                setError(null);
               }}
             />
           </div>
@@ -509,36 +578,14 @@ const AddCertificateModal = () => {
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 sticky bottom-0">
           <button
-            onClick={closeAddModal}
+            onClick={onClose}
             disabled={isSaving}
             className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 cursor-pointer transition disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={async () => {
-              // Capture the type BEFORE addCertificate() clears the form
-              const certType = addForm.certificateType as
-                | "New"
-                | "Renewal"
-                | "Reciprocal";
-              try {
-                await addCertificate();
-                showToast(
-                  ADD_SUCCESS_MESSAGES[certType] ??
-                    "Pharmacist registered successfully!",
-                  "success",
-                );
-              } catch (err: unknown) {
-                showToast(
-                  extractErrorMessage(
-                    err,
-                    "Failed to register pharmacist. Please try again.",
-                  ),
-                  "error",
-                );
-              }
-            }}
+            onClick={handleSave}
             disabled={isSaving}
             className="flex items-center gap-2 px-5 py-2 text-sm bg-blue-900 text-white rounded hover:bg-blue-800 cursor-pointer transition disabled:opacity-60"
           >
@@ -556,23 +603,20 @@ const AddCertificateModal = () => {
   );
 };
 
-// Edit Modal
-interface EditForm {
-  ownerName: string;
-  email: string;
-  phoneNumber: string;
-  issueDate: string;
-  expiryDate: string;
-  status: string;
-  remarks: string;
-  certificate: File | null;
-}
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
 
-const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
-  const { updateCertificate, closeEditModal } = useCertificatesStore();
+const EditCertificateModal = ({
+  cert,
+  onClose,
+  onEdit,
+}: {
+  cert: Certificate;
+  onClose: () => void;
+  onEdit: (id: string, data: Partial<Certificate>) => Promise<void>;
+}) => {
   const { showToast } = useToast();
 
-  const [form, setForm] = useState<EditForm>({
+  const [form, setForm] = useState({
     ownerName: cert.ownerName,
     email: cert.email,
     phoneNumber: cert.phoneNumber,
@@ -580,12 +624,12 @@ const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
     expiryDate: toInputDate(cert.expiryDate),
     status: cert.status,
     remarks: cert.remarks ?? "",
-    certificate: null,
+    certificate: null as File | null,
   });
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const patch = (p: Partial<EditForm>) =>
+  const patch = (p: Partial<typeof form>) =>
     setForm((prev) => ({ ...prev, ...p }));
 
   const handleSubmit = async () => {
@@ -604,26 +648,20 @@ const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
 
     setSaving(true);
     try {
-      const fd = new FormData();
-      fd.append("ownerName", form.ownerName.trim());
-      fd.append("email", form.email.trim().toLowerCase());
-      fd.append("phoneNumber", form.phoneNumber.trim());
-      fd.append("issueDate", form.issueDate);
-      fd.append("expiryDate", form.expiryDate ?? "");
-      fd.append("status", form.status);
-      fd.append("remarks", form.remarks.trim());
-      if (form.certificate) fd.append("certificate", form.certificate);
-
-      await updateCertificate(cert._id, fd);
+      await onEdit(cert._id, {
+        ownerName: form.ownerName,
+        email: form.email,
+        phoneNumber: form.phoneNumber,
+        issueDate: form.issueDate,
+        expiryDate: form.expiryDate,
+        status: form.status,
+        remarks: form.remarks,
+      });
       showToast("Pharmacist updated successfully!", "success");
-    } catch (err: unknown) {
-      showToast(
-        extractErrorMessage(
-          err,
-          "Failed to update certificate. Please try again.",
-        ),
-        "error",
-      );
+      onClose();
+    } catch (err) {
+      showToast("Failed to update certificate.", "error");
+    } finally {
       setSaving(false);
     }
   };
@@ -633,10 +671,10 @@ const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
           <h3 className="text-lg font-serif font-bold text-blue-900">
-            Edit Certificate
+            Edit Certificate (Demo)
           </h3>
           <button
-            onClick={closeEditModal}
+            onClick={onClose}
             disabled={saving}
             className="text-gray-400 hover:text-gray-600 cursor-pointer"
           >
@@ -741,7 +779,9 @@ const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
             <label className={labelCls}>Status</label>
             <select
               value={form.status}
-              onChange={(e) => patch({ status: e.target.value })}
+              onChange={(e) =>
+                patch({ status: e.target.value as CertificateStatus })
+              }
               className={inputCls}
             >
               <option value="Active">Active</option>
@@ -837,7 +877,7 @@ const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 sticky bottom-0">
           <button
-            onClick={closeEditModal}
+            onClick={onClose}
             disabled={saving}
             className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-100 transition disabled:opacity-50 cursor-pointer"
           >
@@ -864,7 +904,7 @@ const EditCertificateModal = ({ cert }: { cert: Certificate }) => {
   );
 };
 
-// View Details Modal
+// ─── View Details Modal ───────────────────────────────────────────────────────
 
 const ViewDetailsModal = ({
   cert,
@@ -914,7 +954,10 @@ const ViewDetailsModal = ({
               href={cert.fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={onClose}
+              onClick={(e) => {
+                e.preventDefault();
+                alert("[Demo Mode] View PDF action triggered.");
+              }}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-900 text-white rounded hover:bg-blue-800 transition"
             >
               <FileText size={14} /> View Certificate
@@ -926,39 +969,41 @@ const ViewDetailsModal = ({
   );
 };
 
-// Main Page
-export default function PharmacistsPage() {
-  const {
-    certificates,
-    pagination,
-    loading,
-    error,
-    search,
-    selectedStatus,
-    selectedType,
-    currentPage,
-    isAdding,
-    isEditing,
-    editTarget,
-    isDeleting,
-    fetchCertificates,
-    setSearch,
-    setSelectedStatus,
-    setSelectedType,
-    setCurrentPage,
-    openAddModal,
-    openEditModal,
-    deleteCertificate,
-    setError,
-  } = useCertificatesStore();
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
+export default function PharmacistsPage() {
   const { showToast } = useToast();
   const { showConfirm } = useConfirmDialog();
 
-  const [viewTarget, setViewTarget] = useState<Certificate | null>(null);
+  // Local State representing the Database
+  const [allData, setAllData] = useState<Certificate[]>(MOCK_DB);
 
-  const [localSearch, setLocalSearch] = useState(search);
+  // Table View State
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 1,
+    limit: 10,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+
+  // Filter State
+  const [search, setSearch] = useState("");
+  const [localSearch, setLocalSearch] = useState("");
+  const [selectedType, setSelectedType] = useState("All Types");
+  const [selectedStatus, setSelectedStatus] = useState("All Statuses");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // UI State
+  const [loading, setLoading] = useState(true);
   const [isTableLoading, setIsTableLoading] = useState(true);
+
+  // Modals
+  const [isAdding, setIsAdding] = useState(false);
+  const [editTarget, setEditTarget] = useState<Certificate | null>(null);
+  const [viewTarget, setViewTarget] = useState<Certificate | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const isInitialLoad = useRef(true);
   const { isLoading: isPageLoading } = usePageLoader([
@@ -977,6 +1022,52 @@ export default function PharmacistsPage() {
     Reciprocal: "Reciprocal",
   };
 
+  const fetchCertificates = useCallback(() => {
+    setLoading(true);
+    setTimeout(() => {
+      let filtered = [...allData];
+
+      if (search.trim()) {
+        const query = search.toLowerCase();
+        filtered = filtered.filter(
+          (c) =>
+            c.registrationNumber.toLowerCase().includes(query) ||
+            c.ownerName.toLowerCase().includes(query),
+        );
+      }
+      if (selectedType !== "All Types") {
+        filtered = filtered.filter((c) => c.certificateType === selectedType);
+      }
+      if (selectedStatus !== "All Statuses") {
+        filtered = filtered.filter((c) => c.status === selectedStatus);
+      }
+
+      const limit = 10;
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / limit) || 1;
+      const safePage = Math.min(currentPage, totalPages);
+
+      if (safePage !== currentPage && safePage > 0) {
+        setCurrentPage(safePage);
+        return; // Will re-run effect
+      }
+
+      const start = (safePage - 1) * limit;
+      const currentData = filtered.slice(start, start + limit);
+
+      setCertificates(currentData);
+      setPagination({
+        total,
+        totalPages,
+        limit,
+        hasNextPage: safePage < totalPages,
+        hasPrevPage: safePage > 1,
+      });
+
+      setLoading(false);
+    }, 500); // Simulate network delay
+  }, [allData, search, selectedType, selectedStatus, currentPage]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localSearch !== search) {
@@ -985,16 +1076,11 @@ export default function PharmacistsPage() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [localSearch, search, setSearch, setCurrentPage]);
-
-  useEffect(() => {
-    setLocalSearch(search);
-  }, [search]);
+  }, [localSearch, search]);
 
   useEffect(() => {
     fetchCertificates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, selectedStatus, selectedType, currentPage]);
+  }, [fetchCertificates]);
 
   useEffect(() => {
     if (!loading && isInitialLoad.current) {
@@ -1006,52 +1092,63 @@ export default function PharmacistsPage() {
     if (loading) {
       setIsTableLoading(true);
     } else {
-      const timer = setTimeout(() => {
-        setIsTableLoading(false);
-      }, 600);
+      const timer = setTimeout(() => setIsTableLoading(false), 300);
       return () => clearTimeout(timer);
     }
   }, [loading]);
 
-  useEffect(() => {
-    if (error) {
-      showToast(error, "error");
-      setError(null);
-    }
-  }, [error, showToast, setError]);
+  // Mock Handlers
+  const handleAdd = async (data: Partial<Certificate>) => {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        const newCert: Certificate = {
+          _id: `cert-new-${Date.now()}`,
+          registrationNumber: data.registrationNumber || "",
+          ownerName: data.ownerName || "",
+          email: data.email || "",
+          phoneNumber: data.phoneNumber || "",
+          degree: data.degree || "",
+          certificateType: (data.certificateType as CertificateType) || "New",
+          issueDate: data.issueDate || "",
+          expiryDate: data.expiryDate || "",
+          status: "Active",
+          remarks: data.remarks || "",
+          uploadedBy: { name: "System Admin" },
+        };
+        setAllData((prev) => [newCert, ...prev]);
+        resolve();
+      }, 800);
+    });
+  };
 
-  useEffect(() => {
-    return () => {
-      setSearch("");
-      setSelectedType("All Types");
-      setSelectedStatus("All Statuses");
-      setCurrentPage(1);
-    };
-  }, [setSearch, setSelectedType, setSelectedStatus, setCurrentPage]);
+  const handleEdit = async (id: string, data: Partial<Certificate>) => {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        setAllData((prev) =>
+          prev.map((c) => (c._id === id ? { ...c, ...data } : c)),
+        );
+        resolve();
+      }, 800);
+    });
+  };
 
   const handleDelete = useCallback(
     async (id: string) => {
       showConfirm(
-        async () => {
-          try {
-            await deleteCertificate(id);
-            showToast("Pharmacist deleted successfully!", "success");
-          } catch (err: unknown) {
-            showToast(
-              extractErrorMessage(
-                err,
-                "Failed to delete certificate. Please try again.",
-              ),
-              "error",
-            );
-          }
+        () => {
+          setIsDeleting(id);
+          setTimeout(() => {
+            setAllData((prev) => prev.filter((c) => c._id !== id));
+            showToast("[Demo] Pharmacist deleted successfully!", "success");
+            setIsDeleting(null);
+          }, 800);
         },
         "Delete this certificate? This action cannot be undone.",
         "Delete",
         "Cancel",
       );
     },
-    [deleteCertificate, showConfirm, showToast],
+    [showConfirm, showToast],
   );
 
   if (isPageLoading) {
@@ -1063,14 +1160,21 @@ export default function PharmacistsPage() {
     certificates.length === 0 ? 0 : (currentPage - 1) * pagination.limit + 1;
   const endEntry = Math.min(currentPage * pagination.limit, pagination.total);
 
-  if (loading) {
-    return <CustomLoader fullPage message="Loading pharmacists..." />;
-  }
-
   return (
     <>
-      {isAdding && <AddCertificateModal />}
-      {isEditing && editTarget && <EditCertificateModal cert={editTarget} />}
+      {isAdding && (
+        <AddCertificateModal
+          onClose={() => setIsAdding(false)}
+          onAdd={handleAdd}
+        />
+      )}
+      {editTarget && (
+        <EditCertificateModal
+          cert={editTarget}
+          onClose={() => setEditTarget(null)}
+          onEdit={handleEdit}
+        />
+      )}
       {viewTarget && (
         <ViewDetailsModal
           cert={viewTarget}
@@ -1091,7 +1195,7 @@ export default function PharmacistsPage() {
             </p>
           </div>
           <button
-            onClick={openAddModal}
+            onClick={() => setIsAdding(true)}
             className="bg-blue-900 text-white px-4 py-2 rounded shadow-sm hover:bg-blue-800 transition flex items-center gap-2 text-sm cursor-pointer"
           >
             <Plus size={18} /> Add Pharmacist
@@ -1135,8 +1239,8 @@ export default function PharmacistsPage() {
 
           <button
             onClick={() => {
-              setSearch("");
               setLocalSearch("");
+              setSearch("");
               setSelectedType("All Types");
               setSelectedStatus("All Statuses");
               setCurrentPage(1);
@@ -1169,7 +1273,10 @@ export default function PharmacistsPage() {
               <tbody className="text-sm divide-y divide-gray-100">
                 {isTableLoading && (
                   <tr>
-                    <td colSpan={9} className="text-center py-14 text-gray-500">
+                    <td
+                      colSpan={10}
+                      className="text-center py-14 text-gray-500"
+                    >
                       <div className="flex flex-col items-center gap-2">
                         <Loader
                           size={32}
@@ -1203,9 +1310,7 @@ export default function PharmacistsPage() {
                             cert.certificateType}
                         </span>
                       </td>
-                      <td className="p-4">
-                        {cert?.uploadedBy?.name ?? "N/A"}
-                      </td>
+                      <td className="p-4">{cert?.uploadedBy?.name ?? "N/A"}</td>
                       <td className="p-4 text-xs text-gray-500">
                         {formatDate(cert.issueDate)}
                       </td>
@@ -1225,7 +1330,7 @@ export default function PharmacistsPage() {
                             <Eye size={17} />
                           </button>
                           <button
-                            onClick={() => openEditModal(cert)}
+                            onClick={() => setEditTarget(cert)}
                             className="text-green-600 hover:text-green-700 transition-colors cursor-pointer"
                             title="Edit Certificate"
                           >
@@ -1250,7 +1355,10 @@ export default function PharmacistsPage() {
 
                 {!isTableLoading && certificates.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="text-center py-14 text-gray-400">
+                    <td
+                      colSpan={10}
+                      className="text-center py-14 text-gray-400"
+                    >
                       <div className="flex flex-col items-center gap-2">
                         <Search size={32} className="opacity-25" />
                         <p className="font-medium">No certificates found.</p>
@@ -1300,7 +1408,7 @@ export default function PharmacistsPage() {
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   disabled={isTableLoading}
-                  className={`px-3 py-1 border rounded text-sm ${
+                  className={`px-3 py-1 border rounded text-sm cursor-pointer ${
                     currentPage === page
                       ? "bg-blue-900 text-white border-blue-900"
                       : "border-gray-300 text-gray-600"
@@ -1317,7 +1425,7 @@ export default function PharmacistsPage() {
                   )}
                   <button
                     onClick={() => setCurrentPage(pagination.totalPages)}
-                    className="px-3 py-1 border rounded border-gray-300 text-gray-600 text-sm"
+                    className="px-3 py-1 border rounded border-gray-300 text-gray-600 text-sm cursor-pointer"
                   >
                     {pagination.totalPages}
                   </button>
