@@ -33,6 +33,12 @@ type NavLinkItem = {
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+
+  // Optional: Track which login was clicked if your offcanvas needs to know
+  const [loginType, setLoginType] = useState<"applicant" | "council" | null>(
+    null,
+  );
+
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(
     null,
   );
@@ -229,19 +235,38 @@ export function Navbar() {
         </ul>
       </div>
 
-      {/* RIGHT SECTION - Login Area */}
-      <div className="group bg-[#ffcc00] rounded-sm h-full flex items-center shrink-0 pl-1 shadow-[-4px_0_10px_rgba(0,0,0,0.05)] transition-colors duration-200 cursor-pointer">
-        <div>
-          <button
-            className="flex items-center gap-2 cursor-pointer px-4 h-full rounded font-semibold transition-all duration-200 text-sm md:text-base whitespace-nowrap"
-            onClick={() => setLoginOpen(true)}
-          >
-            <LogIn size={18} />
-            <span>Login</span>
-          </button>
+      {/* RIGHT SECTION - Pill Login Buttons */}
+      <div className="flex h-full items-center shrink-0 gap-2 pr-2">
+        {/* Applicant Login Button (Yellow Pill) */}
+        <button
+          className="flex items-center justify-center gap-1.5 cursor-pointer px-4 py-1.5 rounded-full bg-[#2557D6] hover:bg-[#2557D6]/90 text-white font-bold transition-all duration-200 text-xs md:text-[13px] whitespace-nowrap shadow-sm"
+          onClick={() => {
+            setLoginType("applicant");
+            setLoginOpen(true);
+          }}
+        >
+          <LogIn size={14} />
+          <span>
+            Applicant<span className="hidden xl:inline"> Login</span>
+          </span>
+        </button>
 
-          <CustomOffcanvas open={loginOpen} onOpenChange={setLoginOpen} />
-        </div>
+        {/* Council Login Button (White Pill) */}
+        <button
+          className="flex items-center justify-center gap-1.5 cursor-pointer px-4 py-1.5 rounded-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold transition-all duration-200 text-xs md:text-[13px] whitespace-nowrap shadow-sm"
+          onClick={() => {
+            setLoginType("council");
+            setLoginOpen(true);
+          }}
+        >
+          <LogIn size={14} />
+          <span>
+            Council<span className="hidden xl:inline"> Login</span>
+          </span>
+        </button>
+
+        {/* Add loginType={loginType} here if your CustomOffcanvas component expects it */}
+        <CustomOffcanvas open={loginOpen} onOpenChange={setLoginOpen} />
       </div>
 
       {/* Mobile/Tablet Menu */}

@@ -216,7 +216,7 @@ export default function Header({
               height={80}
               // Slightly smaller on mobile so it centers perfectly with the text
               className="h-10 md:h-16 lg:h-20 w-auto shrink-0 brightness-0"
-              priority={false}
+              priority
             />
 
             <div className="hidden sm:block h-10 md:h-16 w-px bg-gray-400 shrink-0"></div>

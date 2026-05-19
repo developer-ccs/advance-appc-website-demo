@@ -16,58 +16,155 @@ import {
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { useDashboardStore } from "@/store/globalSorage";
-import CustomLoader from "@/components/ui/CustomLoader";
-import { usePageLoader } from "@/hooks/usePageLoader";
+
+// Demo Data
+const demoStatusWiseCounts = [{ _id: "Active", count: 1245 }];
+const demoNewForm = { uniqueDownloaders: 432 };
+const demoRenewalForm = { uniqueDownloaders: 856 };
+const demoNoticesTotalCount = 42;
+
+type StatusType =
+  | "Active"
+  | "Pending"
+  | "Rejected"
+  | "Approved"
+  | "In Review"
+  | "Expired"
+  | "Revoked";
+
+const demoCertificates: {
+  _id: string;
+  registrationNumber: string;
+  ownerName: string;
+  certificateType: string;
+  status: StatusType; // Force this specific type
+}[] = [
+  {
+    _id: "1",
+    registrationNumber: "PH-2023-001",
+    ownerName: "John Doe",
+    certificateType: "New",
+    status: "Active",
+  },
+  {
+    _id: "2",
+    registrationNumber: "PH-2023-002",
+    ownerName: "Jane Smith",
+    certificateType: "Renewal",
+    status: "Pending",
+  },
+  {
+    _id: "3",
+    registrationNumber: "PH-2023-003",
+    ownerName: "Alice Johnson",
+    certificateType: "New",
+    status: "Active",
+  },
+  {
+    _id: "4",
+    registrationNumber: "PH-2023-004",
+    ownerName: "Bob Brown",
+    certificateType: "Renewal",
+    status: "Rejected",
+  },
+  {
+    _id: "5",
+    registrationNumber: "PH-2023-005",
+    ownerName: "Charlie Davis",
+    certificateType: "New",
+    status: "Active",
+  },
+];
+
+const demoNotices = [
+  {
+    _id: "n1",
+    section: "Notice",
+    title: "Annual General Meeting 2024",
+    isNew: true,
+    userId: { name: "Admin Staff" },
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: "n2",
+    section: "Notice",
+    title: "System Maintenance Window",
+    isNew: false,
+    userId: { name: "IT Dept" },
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    _id: "n3",
+    section: "Notice",
+    title: "Updated Registration Guidelines",
+    isNew: false,
+    userId: { name: "Registrar" },
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+  },
+];
+
+const demoAnnouncements = [
+  {
+    _id: "a1",
+    section: "Announcement",
+    title: "Holiday Schedule for December",
+    isNew: true,
+    userId: { name: "HR Dept" },
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: "a2",
+    section: "Announcement",
+    title: "New Online Portal Launch",
+    isNew: true,
+    userId: { name: "Admin Staff" },
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    _id: "a3",
+    section: "Announcement",
+    title: "Pharmacy Board Elections",
+    isNew: false,
+    userId: { name: "Election Comm." },
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
+  },
+];
+
+const demoDownloadHistory = [
+  {
+    _id: "d1",
+    serialNumber: "DL-001",
+    userId: { name: "Michael Scott" },
+    pdfId: { title: "Registration Form A" },
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: "d2",
+    serialNumber: "DL-002",
+    userId: { name: "Dwight Schrute" },
+    pdfId: { title: "Renewal Form B" },
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    _id: "d3",
+    serialNumber: "DL-003",
+    userId: { name: "Jim Halpert" },
+    pdfId: { title: "Registration Form A" },
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+];
 
 export default function AdminDashboard() {
   const router = useRouter();
 
-  const {
-    newForm,
-    renewalForm,
-    statsLoading,
-    fetchDownloadStats,
-    certificates,
-    statusWiseCounts,
-    certLoading,
-    fetchCertificates,
-    notices,
-    announcements,
-    noticesTotalCount,
-    noticesLoading,
-    fetchNotices,
-    downloadHistory,
-    downloadHistoryLoading,
-    fetchDownloadHistory,
-  } = useDashboardStore();
-
-  useEffect(() => {
-    fetchDownloadStats();
-    fetchCertificates();
-    fetchNotices();
-    fetchDownloadHistory();
-  }, []);
-
-  // ← added: full-page loader on first login / page refresh
-  const { isLoading } = usePageLoader([
-    certLoading,
-    statsLoading,
-    noticesLoading,
-    downloadHistoryLoading,
-  ]);
-
-  if (isLoading)
-    return <CustomLoader fullPage message="Loading dashboard..." />;
-
+  // Using demo data instead of API state
   const activeCertifiedCount =
-    statusWiseCounts.find((s) => s._id === "Active")?.count || 0;
+    demoStatusWiseCounts.find((s) => s._id === "Active")?.count || 0;
 
   const stats = [
     {
       title: "Certified Pharmacists",
-      value: certLoading ? "..." : String(activeCertifiedCount),
+      value: String(activeCertifiedCount),
       icon: Users,
       accent: "#1e40af",
       bg: "from-blue-50 to-blue-100/60",
@@ -76,7 +173,7 @@ export default function AdminDashboard() {
     },
     {
       title: "New Form Downloads",
-      value: statsLoading ? "..." : String(newForm.uniqueDownloaders),
+      value: String(demoNewForm.uniqueDownloaders),
       icon: UserPlus,
       accent: "#b91c1c",
       bg: "from-rose-50 to-rose-100/60",
@@ -85,7 +182,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Renewal Form Downloads",
-      value: statsLoading ? "..." : String(renewalForm.uniqueDownloaders),
+      value: String(demoRenewalForm.uniqueDownloaders),
       icon: RefreshCw,
       accent: "#b45309",
       bg: "from-amber-50 to-amber-100/60",
@@ -94,7 +191,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Notices & Announcements",
-      value: noticesLoading ? "..." : String(noticesTotalCount),
+      value: String(demoNoticesTotalCount),
       icon: Megaphone,
       accent: "#15803d",
       bg: "from-emerald-50 to-emerald-100/60",
@@ -183,39 +280,25 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-100">
-                  {certLoading ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-5 py-8 text-center text-slate-400 text-sm"
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Loading certificates...
-                        </div>
+                  {demoCertificates.slice(0, 5).map((cert) => (
+                    <tr
+                      key={cert._id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="px-5 py-3.5 font-mono text-xs text-slate-500 bg-slate-50/40">
+                        {cert.registrationNumber}
+                      </td>
+                      <td className="px-5 py-3.5 font-semibold text-slate-700">
+                        {cert.ownerName}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-500 text-xs text-center">
+                        {cert.certificateType}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <StatusBadge status={cert.status} />
                       </td>
                     </tr>
-                  ) : (
-                    certificates.slice(0, 5).map((cert) => (
-                      <tr
-                        key={cert._id}
-                        className="hover:bg-slate-50/80 transition-colors"
-                      >
-                        <td className="px-5 py-3.5 font-mono text-xs text-slate-500 bg-slate-50/40">
-                          {cert.registrationNumber}
-                        </td>
-                        <td className="px-5 py-3.5 font-semibold text-slate-700">
-                          {cert.ownerName}
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-500 text-xs text-center">
-                          {cert.certificateType}
-                        </td>
-                        <td className="px-5 py-3.5 text-center">
-                          <StatusBadge status={cert.status} />
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -254,53 +337,39 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-100">
-                  {noticesLoading ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-5 py-8 text-center text-slate-400 text-sm"
+                  {demoNotices
+                    .filter((notice) => notice.section === "Notice")
+                    .slice(0, 5)
+                    .map((notice) => (
+                      <tr
+                        key={notice._id}
+                        className="hover:bg-slate-50/80 transition-colors"
                       >
-                        <div className="flex items-center justify-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Loading notices...
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    notices
-                      .filter((notice) => notice.section === "Notice")
-                      .slice(0, 5)
-                      .map((notice) => (
-                        <tr
-                          key={notice._id}
-                          className="hover:bg-slate-50/80 transition-colors"
-                        >
-                          <td className="px-5 py-3.5 font-semibold text-slate-700 max-w-50">
-                            <div className="flex items-center gap-2 truncate">
-                              <span className="truncate">{notice.title}</span>
-                              {notice.isNew && (
-                                <span className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-green-200 leading-none shrink-0">
-                                  NEW
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-center text-slate-500">
-                            {notice.userId?.name ?? "-"}
-                          </td>
-                          <td className="px-5 py-3.5 text-slate-400 text-xs text-center whitespace-nowrap">
-                            {new Date(notice.createdAt).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
+                        <td className="px-5 py-3.5 font-semibold text-slate-700 max-w-50">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="truncate">{notice.title}</span>
+                            {notice.isNew && (
+                              <span className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-green-200 leading-none shrink-0">
+                                NEW
+                              </span>
                             )}
-                          </td>
-                        </tr>
-                      ))
-                  )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-center text-slate-500">
+                          {notice.userId?.name ?? "-"}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-400 text-xs text-center whitespace-nowrap">
+                          {new Date(notice.createdAt).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -339,57 +408,43 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-100">
-                  {noticesLoading ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="px-5 py-8 text-center text-slate-400 text-sm"
+                  {demoAnnouncements
+                    .filter(
+                      (announcement) => announcement.section === "Announcement",
+                    )
+                    .slice(0, 5)
+                    .map((announcement) => (
+                      <tr
+                        key={announcement._id}
+                        className="hover:bg-slate-50/80 transition-colors"
                       >
-                        <div className="flex items-center justify-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Loading notices...
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    announcements
-                      .filter(
-                        (announcement) =>
-                          announcement.section === "Announcement",
-                      )
-                      .slice(0, 5)
-                      .map((announcement) => (
-                        <tr
-                          key={announcement._id}
-                          className="hover:bg-slate-50/80 transition-colors"
-                        >
-                          <td className="px-5 py-3.5 font-semibold text-slate-700 max-w-50">
-                            <div className="flex items-center gap-2 truncate">
-                              <span className="truncate">
-                                {announcement.title}
+                        <td className="px-5 py-3.5 font-semibold text-slate-700 max-w-50">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="truncate">
+                              {announcement.title}
+                            </span>
+                            {announcement.isNew && (
+                              <span className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-green-200 leading-none shrink-0">
+                                NEW
                               </span>
-                              {announcement.isNew && (
-                                <span className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded border border-green-200 leading-none shrink-0">
-                                  NEW
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-center text-slate-500">
-                            {announcement.userId?.name ?? "-"}
-                          </td>
-                          <td className="px-5 py-3.5 text-slate-400 text-center text-xs whitespace-nowrap">
-                            {new Date(
-                              announcement.createdAt,
-                            ).toLocaleDateString("en-IN", {
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-center text-slate-500">
+                          {announcement.userId?.name ?? "-"}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-400 text-center text-xs whitespace-nowrap">
+                          {new Date(announcement.createdAt).toLocaleDateString(
+                            "en-IN",
+                            {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
-                            })}
-                          </td>
-                        </tr>
-                      ))
-                  )}
+                            },
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -429,19 +484,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-100">
-                  {downloadHistoryLoading ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-5 py-8 text-center text-slate-400 text-sm"
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Loading download history...
-                        </div>
-                      </td>
-                    </tr>
-                  ) : downloadHistory.length === 0 ? (
+                  {demoDownloadHistory.length === 0 ? (
                     <tr>
                       <td
                         colSpan={4}
@@ -454,7 +497,7 @@ export default function AdminDashboard() {
                       </td>
                     </tr>
                   ) : (
-                    downloadHistory.slice(0, 5).map((item) => (
+                    demoDownloadHistory.slice(0, 5).map((item) => (
                       <tr
                         key={item._id}
                         className="hover:bg-slate-50/80 transition-colors"

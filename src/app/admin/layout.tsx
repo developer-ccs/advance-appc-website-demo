@@ -23,8 +23,6 @@ import {
   FileUser,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/authStore";
-import { apiClient } from "@/lib/axios-instance";
 
 interface User {
   id: number;
@@ -171,16 +169,27 @@ const SidebarContent = memo(function SidebarContent({
   );
 });
 
+// Demo Data injected directly
+const demoUser: User = {
+  id: 1,
+  name: "Jane Doe",
+  role: "super-admin",
+  email: "jane.doe@example.com",
+  userId: {
+    name: "Jane Doe",
+    role: "super-admin",
+    email: "jane.doe@example.com",
+  },
+};
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [data, setData] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<User | null>(demoUser);
   const pathname = usePathname();
   const router = useRouter();
-  const clearAuth = useAuthStore((state) => state.clearAuth);
   const [loggingOut, setLoggingOut] = useState(false);
 
   // ✅ Start as false (SSR-safe), update after mount
@@ -192,9 +201,9 @@ export default function AdminLayout({
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  const user = useAuthStore((state) => state.user);
-  const currentUserRole = user?.role ?? "";
-  const currentUserName = user?.name ?? "";
+  // Using demo mock data instead of store
+  const currentUserRole = data?.role ?? "super-admin";
+  const currentUserName = data?.name ?? "Jane Doe";
 
   const allNavItems: NavItem[] = [
     {
@@ -341,34 +350,18 @@ export default function AdminLayout({
     setMobileOpen(false);
   }, [pathname]);
 
-  const fetchProfile = async () => {
-    setLoading(true);
-    try {
-      const { data } = await apiClient.get("/global/get-profile");
-      setData(data.data);
-    } catch (error) {
-      console.log("fetch profile error", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
   const handleLogout = useCallback(async () => {
     try {
       setLoggingOut(true);
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      await apiClient.post("/applicant/logout");
+      // Mock network delay for smooth UI transition
+      await new Promise((resolve) => setTimeout(resolve, 800));
     } catch (err) {
       console.error("Logout error", err);
     } finally {
-      clearAuth();
+      console.log("Logged out successfully");
       router.push("/");
     }
-  }, [clearAuth, router]);
+  }, [router]);
 
   const sidebarProps: SidebarContentProps = {
     collapsed,
@@ -494,11 +487,7 @@ export default function AdminLayout({
               </div>
               <div className="hidden sm:flex flex-col min-w-0">
                 <span className="text-sm font-bold text-gray-800">
-                  {loading && !currentUserName ? (
-                    <span className="text-gray-400">Loading...</span>
-                  ) : (
-                    displayName
-                  )}
+                  {displayName}
                 </span>
                 <span className="text-[11px] text-gray-500 capitalize truncate">
                   {displayRole}
