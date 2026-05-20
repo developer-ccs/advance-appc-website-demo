@@ -281,7 +281,7 @@ export function CouncilLogin({
         <div className="text-center pt-2">
           <button
             type="button"
-            onClick={() => onSwitchView("council-forgot")}
+            onClick={() => onSwitchView("applicant-forgot")}
             className="text-sm text-indigo-600 hover:underline cursor-pointer font-medium"
           >
             Forgot administrative password?
