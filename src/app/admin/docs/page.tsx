@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/axios-instance";
-import { AxiosError } from "axios";
 import {
   FileText,
   XCircle,
@@ -62,6 +60,54 @@ type MainTab = "my-uploads" | "all";
 const ITEMS_PER_PAGE = 10;
 const TENDER_LIMIT = 10;
 
+// ─── Mock Data & Simulation ───────────────────────────────────────────────────
+
+const MOCK_USERS = {
+  me: { name: "Current User", email: "me@example.com" },
+  other1: { name: "Admin Officer", email: "admin@example.com" },
+  other2: { name: "Jane Smith", email: "jane@example.com" },
+};
+
+const SECTIONS = ["circulars", "reports", "guidelines", "notices"];
+const CATEGORIES = ["WORKS", "GOODS", "SERVICES"];
+
+const MOCK_PDFS: Pdf[] = Array.from({ length: 45 }).map((_, i) => ({
+  _id: `pdf-${i + 1}`,
+  title:
+    i % 3 === 0
+      ? `Important Policy Update 202${(i % 5) + 1}`
+      : `General Document ${i + 1}`,
+  fileName: `document_${i + 1}.pdf`,
+  fileUrl: "#",
+  section: SECTIONS[i % SECTIONS.length],
+  createdAt: new Date(Date.now() - i * 86400000 * 2).toISOString(),
+  isNew: i < 5,
+  userId:
+    i % 3 === 0
+      ? MOCK_USERS.me
+      : i % 2 === 0
+        ? MOCK_USERS.other1
+        : MOCK_USERS.other2,
+}));
+
+const MOCK_TENDERS: Tender[] = Array.from({ length: 35 }).map((_, i) => ({
+  _id: `tender-${i + 1}`,
+  title:
+    i % 4 === 0
+      ? `Campus Infrastructure Upgrade Phase ${i + 1}`
+      : `Supply of Equipment Batch ${i + 1}`,
+  category: CATEGORIES[i % CATEGORIES.length],
+  status: i % 5 === 0 ? "ended" : "ongoing",
+  fileUrl: "#",
+  fileName: `tender_${i + 1}.pdf`,
+  fileSize: 1024 * 1024 * ((i % 5) + 1.5), // 1.5MB to 5.5MB
+  isNew: i < 3,
+  createdAt: new Date(Date.now() - i * 86400000 * 3).toISOString(),
+  userId: i % 2 === 0 ? MOCK_USERS.me : MOCK_USERS.other1,
+}));
+
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MyDocumentsPage() {
@@ -115,23 +161,60 @@ export default function MyDocumentsPage() {
         setLoading(true);
         setError("");
 
-        const baseEndpoint =
-          mainTab === "my-uploads" ? "/upload/get-my-pdfs" : "/upload/pdfs";
+        await delay(600); // Simulate API latency
 
-        const params = new URLSearchParams({
-          page: currentPage.toString(),
-          limit: ITEMS_PER_PAGE.toString(),
+        let filtered =
+          mainTab === "my-uploads"
+            ? MOCK_PDFS.filter((p) => p.userId?.email === MOCK_USERS.me.email)
+            : [...MOCK_PDFS];
+
+        if (debouncedSearch) {
+          const lowerQ = debouncedSearch.toLowerCase();
+          filtered = filtered.filter(
+            (p) =>
+              p.title?.toLowerCase().includes(lowerQ) ||
+              p.fileName.toLowerCase().includes(lowerQ),
+          );
+        }
+
+        const totalCount = filtered.length;
+
+        // Group by sections for the filter tabs
+        const secMap = filtered.reduce(
+          (acc, p) => {
+            acc[p.section] = (acc[p.section] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
+
+        const sectionWiseCounts = Object.entries(secMap).map(
+          ([_id, count]) => ({
+            _id,
+            count,
+          }),
+        );
+
+        if (activeSection !== "all") {
+          filtered = filtered.filter((p) => p.section === activeSection);
+        }
+
+        const sectionCountTotal = filtered.length;
+
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const paginatedPdfs = filtered.slice(
+          startIndex,
+          startIndex + ITEMS_PER_PAGE,
+        );
+
+        setData({
+          pdfs: paginatedPdfs,
+          totalCount,
+          sectionCountTotal,
+          sectionWiseCounts,
         });
-
-        if (activeSection && activeSection !== "all")
-          params.append("section", activeSection);
-        if (debouncedSearch) params.append("search", debouncedSearch);
-
-        const res = await apiClient.get(`${baseEndpoint}?${params.toString()}`);
-        setData(res.data.data);
       } catch (err) {
-        const e = err as AxiosError<{ message: string }>;
-        setError(e.response?.data?.message || "Failed to load documents");
+        setError("Failed to load documents");
       } finally {
         setLoading(false);
       }
@@ -148,23 +231,33 @@ export default function MyDocumentsPage() {
         setTenderLoading(true);
         setTenderError("");
 
-        const endpoint =
+        await delay(800); // Simulate API latency
+
+        let filtered =
           mainTab === "my-uploads"
-            ? "/tender/get-my-tenders"
-            : "/tender/get-all-tenders";
+            ? MOCK_TENDERS.filter(
+                (t) => t.userId?.email === MOCK_USERS.me.email,
+              )
+            : [...MOCK_TENDERS];
 
-        const params = new URLSearchParams({
-          page: tenderPage.toString(),
-          limit: TENDER_LIMIT.toString(),
-        });
-        if (debouncedSearch) params.append("search", debouncedSearch);
+        if (debouncedSearch) {
+          const lowerQ = debouncedSearch.toLowerCase();
+          filtered = filtered.filter((t) =>
+            t.title.toLowerCase().includes(lowerQ),
+          );
+        }
 
-        const res = await apiClient.get(`${endpoint}?${params.toString()}`);
-        setTenders(res.data.data.tenders ?? []);
-        setTenderTotal(res.data.data.totalCount ?? 0);
+        const totalFiltered = filtered.length;
+        const startIndex = (tenderPage - 1) * TENDER_LIMIT;
+        const paginatedTenders = filtered.slice(
+          startIndex,
+          startIndex + TENDER_LIMIT,
+        );
+
+        setTenders(paginatedTenders);
+        setTenderTotal(totalFiltered);
       } catch (err) {
-        const e = err as AxiosError<{ message: string }>;
-        setTenderError(e.response?.data?.message || "Failed to load tenders");
+        setTenderError("Failed to load tenders");
       } finally {
         setTenderLoading(false);
       }

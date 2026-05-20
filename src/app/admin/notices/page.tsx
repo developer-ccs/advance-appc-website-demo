@@ -1,6 +1,5 @@
 "use client";
 
-import { AxiosError } from "axios";
 import {
   Eye,
   FileText,
@@ -12,7 +11,6 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiClient } from "@/lib/axios-instance";
 import { useNoticesStore, NOTICE_SECTION_OPTIONS } from "@/store/noticesStore";
 import { useToast } from "@/components/ui/ToastContext";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialogContext";
@@ -28,36 +26,36 @@ interface PdfRecord {
   fileName: string;
   fileSize: number;
   createdAt: string;
+  userId?: { name: string; email: string }; // Fixed: Added email to match store type
   isNew?: boolean;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  statusCode: number;
-  message: string;
-  data: T;
-}
-
-interface PdfsData {
-  pdfs: PdfRecord[];
-  totalCount: number;
-  sectionCountTotal: number;
-  sectionWiseCounts: { _id: string; count: number }[];
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    limit: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
 }
 
 const ITEMS_PER_PAGE = 10;
 
+// ─── DEMO DATA ───────────────────────────────────────────────────────────────
+let MOCK_DATABASE: PdfRecord[] = Array.from({ length: 35 }).map((_, i) => {
+  const isNotice = i % 3 !== 0;
+  return {
+    _id: `mock-id-${i + 1}`,
+    title: isNotice
+      ? `Semester ${Math.floor(Math.random() * 8) + 1} Examination Schedule ${2026}`
+      : `General Holiday Announcement - ${new Date(
+          Date.now() - i * 86400000 * 5,
+        ).toLocaleString("default", { month: "long" })}`,
+    section: isNotice ? "Notice" : "Announcement",
+    fileUrl: "#",
+    fileName: `document-${i + 1}.pdf`,
+    fileSize: Math.floor(Math.random() * 5000) + 1024,
+    createdAt: new Date(Date.now() - i * 86400000 * 2).toISOString(),
+    userId: {
+      name: i % 2 === 0 ? "Admin" : "Super Admin",
+      email: i % 2 === 0 ? "admin@demo.com" : "super@demo.com", // Fixed: Added email
+    },
+    isNew: i < 3,
+  };
+});
+
 const getErrorMessage = (err: unknown): string => {
-  if (err instanceof AxiosError) {
-    return err.response?.data?.message ?? err.message;
-  }
   if (err instanceof Error) return err.message;
   return "Something went wrong";
 };
@@ -167,33 +165,44 @@ export default function AdminNoticesPage() {
 
   const fetchNotices = useCallback(async () => {
     setLoading(true);
-    // 600ms delay to prevent fast flickering on table inline loading
+    // Mimic network delay
     await new Promise((resolve) => setTimeout(resolve, 600));
+
     try {
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(ITEMS_PER_PAGE),
+      // 1. Filter
+      let filtered = MOCK_DATABASE.filter((item) => {
+        const matchesSearch = item.title
+          .toLowerCase()
+          .includes(debouncedSearch.toLowerCase());
+        const matchesFilter =
+          activeFilter === "All" || item.section === activeFilter;
+        return matchesSearch && matchesFilter;
       });
 
-      if (debouncedSearch.trim()) {
-        params.set("search", debouncedSearch.trim());
-      }
-
-      // Pass section filter to backend — "All" means no filter
-      if (activeFilter === "All") {
-        params.set("section", "Notice,Announcement");
-      } else {
-        params.set("section", activeFilter);
-      }
-
-      const { data } = await apiClient.get<ApiResponse<PdfsData>>(
-        `/upload/pdfs?${params.toString()}`,
+      // 2. Sort by newest
+      filtered.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
+      // 3. Paginate
+      const totalFiltered = filtered.length;
+      const totalPages = Math.ceil(totalFiltered / ITEMS_PER_PAGE) || 1;
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      const paginated = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+      // We use `as any` or cast if your external store differs slightly,
+      // but with the updated interface this should now match cleanly.
       setNotices(
-        data.data?.pdfs ?? [],
-        data.data.pagination,
-        data.data.sectionCountTotal ?? 0,
+        paginated as any,
+        {
+          currentPage,
+          totalPages,
+          limit: ITEMS_PER_PAGE,
+          hasNextPage: currentPage < totalPages,
+          hasPrevPage: currentPage > 1,
+        },
+        totalFiltered,
       );
     } catch (err) {
       showToast(getErrorMessage(err), "error");
@@ -220,18 +229,26 @@ export default function AdminNoticesPage() {
     e.preventDefault();
     if (!uploadFile) return;
 
-    const fd = new FormData();
-    fd.append("title", uploadForm.title.trim());
-    fd.append("section", uploadForm.section);
-    fd.append("pdf", uploadFile);
-
     setUploading(true);
+
     try {
-      const { data } = await apiClient.post<ApiResponse<PdfRecord>>(
-        "/upload/pdfs",
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } },
-      );
+      // Mimic server upload delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      const newRecord: PdfRecord = {
+        _id: `mock-new-${Date.now()}`,
+        title: uploadForm.title.trim(),
+        section: uploadForm.section,
+        fileUrl: "#",
+        fileName: uploadFile.name,
+        fileSize: uploadFile.size,
+        createdAt: new Date().toISOString(),
+        userId: { name: "Current User", email: "user@demo.com" }, // Fixed: Added email
+        isNew: true,
+      };
+
+      MOCK_DATABASE = [newRecord, ...MOCK_DATABASE];
+
       showToast(
         `"${uploadForm.section.trim()}" has been published successfully!`,
         "success",
@@ -253,26 +270,29 @@ export default function AdminNoticesPage() {
     e.preventDefault();
     if (!editTarget) return;
 
-    const fd = new FormData();
-    if (editForm.title.trim() !== editTarget.title)
-      fd.append("title", editForm.title.trim());
-    if (editForm.section !== editTarget.section)
-      fd.append("section", editForm.section);
-    if (editFile) fd.append("pdf", editFile);
-
-    if ([...fd.entries()].length === 0) {
-      setEditTarget(null);
-      resetEditForm();
-      return;
-    }
-
     setEditSaving(true);
     try {
-      const { data } = await apiClient.put<ApiResponse<PdfRecord>>(
-        `/upload/pdfs/${editTarget._id}`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } },
+      // Mimic server update delay
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      const targetIndex = MOCK_DATABASE.findIndex(
+        (n) => n._id === editTarget._id,
       );
+
+      if (targetIndex > -1) {
+        MOCK_DATABASE[targetIndex] = {
+          ...MOCK_DATABASE[targetIndex],
+          title: editForm.title.trim() || MOCK_DATABASE[targetIndex].title,
+          section: editForm.section || MOCK_DATABASE[targetIndex].section,
+          fileName: editFile
+            ? editFile.name
+            : MOCK_DATABASE[targetIndex].fileName,
+          fileSize: editFile
+            ? editFile.size
+            : MOCK_DATABASE[targetIndex].fileSize,
+        };
+      }
+
       showToast(
         `"${editTarget.section}" has been updated successfully!`,
         "success",
@@ -287,7 +307,7 @@ export default function AdminNoticesPage() {
     }
   };
 
-  const openEdit = (notice: PdfRecord) => {
+  const openEdit = (notice: any) => {
     setEditTarget(notice);
     setEditForm({ title: notice.title, section: notice.section });
     setEditFile(null);
@@ -300,9 +320,11 @@ export default function AdminNoticesPage() {
   const handleDelete = async (id: string) => {
     const deletedTitle = notices.find((n) => n._id === id)?.section ?? "Notice";
     try {
-      const { data } = await apiClient.delete<ApiResponse<object>>(
-        `/upload/pdfs/${id}`,
-      );
+      // Mimic server deletion delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      MOCK_DATABASE = MOCK_DATABASE.filter((n) => n._id !== id);
+
       showToast(`"${deletedTitle}" has been deleted successfully!`, "success");
       removeNotice(id);
 
@@ -767,7 +789,7 @@ export default function AdminNoticesPage() {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={6}
                         className="text-center py-14 text-gray-400"
                       >
                         <div className="flex flex-col items-center gap-2">
@@ -783,7 +805,7 @@ export default function AdminNoticesPage() {
                     </tr>
                   ) : notices.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-gray-400">
+                      <td colSpan={6} className="p-8 text-center text-gray-400">
                         {debouncedSearch || activeFilter !== "All"
                           ? "No notices match your search."
                           : "No notices published yet."}

@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/axios-instance";
-import { AxiosError } from "axios";
 import {
   Download,
   FileText,
@@ -48,6 +46,90 @@ interface Pagination {
   hasNextPage: boolean;
   hasPrevPage: boolean;
 }
+
+// ─── Mock Data & Simulation ───────────────────────────────────────────────────
+
+const USERS = [
+  {
+    _id: "u1",
+    name: "Alice Johnson",
+    email: "alice@example.com",
+    phoneNumber: "1234567890",
+    role: "user",
+  },
+  {
+    _id: "u2",
+    name: "Bob Smith",
+    email: "bob@example.com",
+    phoneNumber: "9876543210",
+    role: "pharmacist",
+  },
+  {
+    _id: "u3",
+    name: "Clara Oswald",
+    email: "clara@example.com",
+    phoneNumber: "5551234567",
+    role: "admin",
+  },
+  {
+    _id: "u4",
+    name: "David Tennant",
+    email: "david@example.com",
+    phoneNumber: "4449871234",
+    role: "user",
+  },
+];
+
+const PDFS = [
+  {
+    _id: "p1",
+    title: "Pharmacy Registration Form 2026",
+    section: "New-form",
+    fileUrl: "#",
+  },
+  {
+    _id: "p2",
+    title: "Annual License Renewal",
+    section: "Renewal-form",
+    fileUrl: "#",
+  },
+  {
+    _id: "p3",
+    title: "Reciprocal Transfer Application",
+    section: "Reciprocal-form",
+    fileUrl: "#",
+  },
+  {
+    _id: "p4",
+    title: "General Board Notice - May",
+    section: "Notice",
+    fileUrl: "#",
+  },
+  { _id: "p5", title: "Deleted/Old Form", section: "unknown", fileUrl: "#" },
+];
+
+const MOCK_HISTORY_DATA: DownloadHistoryItem[] = Array.from({ length: 42 }).map(
+  (_, i) => {
+    const user = USERS[i % USERS.length];
+    // Deliberately make one pdfId null to test the deleted form scenario
+    const pdf = i === 15 ? null : PDFS[i % PDFS.length];
+
+    const createdDate = new Date(Date.now() - i * 86400000 * 1.5); // Spread over past two months
+    const downloadedDate = new Date(createdDate.getTime() + 3600000); // 1 hour later
+    const expiresDate = new Date(downloadedDate.getTime() + 86400000 * 30); // Expires 30 days later
+
+    return {
+      _id: `hist-${i + 1}`,
+      userId: user,
+      pdfId: pdf,
+      serialNumber: `SN-${1000 + i}${Math.random().toString(36).substring(2, 4).toUpperCase()}`,
+      downloadCount: (i % 5) + 1, // 1 to 5 downloads
+      downloadedAt: downloadedDate.toISOString(),
+      serialExpiresAt: expiresDate.toISOString(),
+      createdAt: createdDate.toISOString(),
+    };
+  },
+);
 
 // Helpers
 
@@ -96,16 +178,30 @@ export default function DownloadHistoryPage() {
   const fetchHistory = async (p = 1) => {
     try {
       setLoading(true);
+      // Simulate API network delay
       await new Promise((resolve) => setTimeout(resolve, 600));
       setError("");
-      const res = await apiClient.get(
-        `/upload/download-history?page=${p}&limit=${LIMIT}`,
+
+      // Mock API Pagination
+      const startIndex = (p - 1) * LIMIT;
+      const paginatedData = MOCK_HISTORY_DATA.slice(
+        startIndex,
+        startIndex + LIMIT,
       );
-      setHistory(res.data.data.history ?? []);
-      setPagination(res.data.data.pagination ?? null);
+      const totalCount = MOCK_HISTORY_DATA.length;
+      const totalPages = Math.ceil(totalCount / LIMIT);
+
+      setHistory(paginatedData);
+      setPagination({
+        total: totalCount,
+        totalPages,
+        currentPage: p,
+        limit: LIMIT,
+        hasNextPage: p < totalPages,
+        hasPrevPage: p > 1,
+      });
     } catch (err) {
-      const e = err as AxiosError<{ message: string }>;
-      setError(e.response?.data?.message || "Failed to load download history");
+      setError("Failed to load download history");
     } finally {
       setLoading(false);
     }
@@ -115,7 +211,7 @@ export default function DownloadHistoryPage() {
     fetchHistory(page);
   }, [page]);
 
-  // Computed Stats from history
+  // Computed Stats from history (In a real app, this might come directly from the API for all records, but we map the current page for demo purposes)
 
   const totalDownloads = history.reduce(
     (sum, item) => sum + (item.downloadCount ?? 0),
@@ -460,14 +556,14 @@ export default function DownloadHistoryPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={!pagination.hasPrevPage}
-                className="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition text-xs font-medium"
+                className="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition text-xs font-medium cursor-pointer"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={!pagination.hasNextPage}
-                className="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition text-xs font-medium"
+                className="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition text-xs font-medium cursor-pointer"
               >
                 Next
               </button>

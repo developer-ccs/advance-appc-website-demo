@@ -1,14 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Trash2, Plus, X, Eye, EyeOff, Search, Loader } from "lucide-react";
-import { apiClient } from "@/lib/axios-instance";
-import { AxiosError } from "axios";
+import React, { useState, useEffect, useMemo } from "react";
+import { Trash2, Plus, X, Search, Loader } from "lucide-react";
 import { useToast } from "@/components/ui/ToastContext";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialogContext";
-import { useAuthStore } from "@/store/authStore";
-import CustomLoader from "@/components/ui/CustomLoader";
-import { usePageLoader } from "@/hooks/usePageLoader";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CouncilUser {
   _id: string;
@@ -22,23 +19,13 @@ interface Council {
   _id: string;
   userId: CouncilUser | null;
   employeeId: string;
-  mustChangePassword: boolean;
   createdAt: string;
-}
-
-interface Pagination {
-  totalCouncil: number;
-  totalPages: number;
-  currentPage: number;
-  limit: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
 }
 
 interface FormState {
   name: string;
   email: string;
-  password: string;
+  password?: string;
   phoneNumber: string;
   employeeId: string;
   role: string;
@@ -61,21 +48,48 @@ const ROLE_OPTIONS = [
   { value: "hr", label: "HR" },
 ];
 
-const HIDDEN_EMPLOYEE_IDS = ["ghost-00001"];
+// ─── Mock Data ───────────────────────────────────────────────────────────────
 
-const isGhostAccount = (c: {
-  employeeId: string;
-  userId?: { name?: string; email?: string } | null;
-}) => {
-  const empId = (c.employeeId ?? "").toLowerCase();
-  const name = (c.userId?.name ?? "").toLowerCase();
-  const email = (c.userId?.email ?? "").toLowerCase();
-  return (
-    HIDDEN_EMPLOYEE_IDS.some((id) => empId === id) ||
-    empId.startsWith("ghost") ||
-    name.includes("ghost")
-  );
-};
+const MOCK_COUNCILS: Council[] = [
+  {
+    _id: "1",
+    employeeId: "ADM-001",
+    userId: {
+      _id: "u1",
+      name: "Dr. Rajesh Kumar",
+      email: "rajesh.admin@appc.gov.in",
+      phoneNumber: "9876543210",
+      role: "super-admin",
+    },
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: "2",
+    employeeId: "EMP-102",
+    userId: {
+      _id: "u2",
+      name: "Smt. Lakshmi Priya",
+      email: "lakshmi.hr@appc.gov.in",
+      phoneNumber: "9888877777",
+      role: "hr",
+    },
+    createdAt: new Date().toISOString(),
+  },
+  {
+    _id: "3",
+    employeeId: "EXE-501",
+    userId: {
+      _id: "u3",
+      name: "Vikram Singh",
+      email: "vikram.exe@appc.gov.in",
+      phoneNumber: "9111122222",
+      role: "executive",
+    },
+    createdAt: new Date().toISOString(),
+  },
+];
+
+// ─── Shared Components ────────────────────────────────────────────────────────
 
 function Modal({
   title,
@@ -88,11 +102,11 @@ function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 cursor-default"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 cursor-default"
+        className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
@@ -113,158 +127,75 @@ function Modal({
 function FormFields({
   isAdd,
   form,
-  formError,
   onChange,
 }: {
   isAdd: boolean;
   form: FormState;
-  formError: string;
-  onChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => void;
+  onChange: any;
 }) {
   return (
     <div className="space-y-3">
-      {formError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-          {formError}
-        </div>
-      )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Full Name <span className="text-red-600">*</span>
+        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+          Full Name
         </label>
         <input
           name="name"
           value={form.name}
-          onChange={(e) => {
-            const filteredValue = e.target.value
-              .replace(/[^A-Za-z\s]/g, "")
-              .replace(/\b\w/g, (char) => char.toUpperCase());
-            e.target.value = filteredValue;
-            onChange(e);
-          }}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
-          placeholder="Dr. A. K. Sharma"
+          onChange={onChange}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          placeholder="Full Name"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Email <span className="text-red-600">*</span>
+        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+          Email
         </label>
         <input
           name="email"
           type="email"
           value={form.email}
-          onChange={(e) => {
-            onChange({
-              target: {
-                name: "email",
-                value: e.target.value.toLowerCase(),
-              },
-            } as React.ChangeEvent<HTMLInputElement>);
-          }}
+          onChange={onChange}
           disabled={!isAdd}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900 disabled:bg-gray-50 disabled:text-gray-400"
-          placeholder="member@appc.gov.in"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm disabled:bg-gray-50"
+          placeholder="email@gov.in"
         />
       </div>
       {isAdd && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password <span className="text-red-600">*</span>
-            </label>
-
-            <div className="relative">
-              <input
-                name="password"
-                type="text"
-                value={form.password}
-                onChange={onChange}
-                className="w-full border border-gray-300 rounded px-3 py-2 pr-40 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
-                placeholder="Temporary password"
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-                  const lower = "abcdefghijklmnopqrstuvwxyz";
-                  const numbers = "0123456789";
-                  const special = "@#$%&*";
-                  const all = upper + lower + numbers + special;
-
-                  let password = [
-                    upper[Math.floor(Math.random() * upper.length)],
-                    lower[Math.floor(Math.random() * lower.length)],
-                    numbers[Math.floor(Math.random() * numbers.length)],
-                    special[Math.floor(Math.random() * special.length)],
-                  ];
-
-                  for (let i = password.length; i < 10; i++) {
-                    password.push(all[Math.floor(Math.random() * all.length)]);
-                  }
-
-                  password = password.sort(() => Math.random() - 0.5);
-
-                  const newPassword = password.join("");
-
-                  const event = {
-                    target: {
-                      name: "password",
-                      value: newPassword,
-                    },
-                  } as React.ChangeEvent<HTMLInputElement>;
-
-                  onChange(event);
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium bg-blue-900 text-white px-3 py-1 rounded hover:bg-blue-800 transition cursor-pointer"
-              >
-                Generate
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Employee ID <span className="text-red-600">*</span>
-            </label>
-            <input
-              name="employeeId"
-              value={form.employeeId}
-              onChange={onChange}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
-              placeholder="EMP001"
-            />
-          </div>
-        </>
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+            Employee ID
+          </label>
+          <input
+            name="employeeId"
+            value={form.employeeId}
+            onChange={onChange}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+            placeholder="EMP001"
+          />
+        </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Phone Number <span className="text-red-600">*</span>
+        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+          Phone
         </label>
         <input
           name="phoneNumber"
           value={form.phoneNumber}
-          onChange={(e) => {
-            const numbersOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
-
-            e.target.value = numbersOnly;
-            onChange(e);
-          }}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
-          placeholder="+91 98765 43210"
+          onChange={onChange}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          placeholder="10 Digit Number"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
           Role
         </label>
         <select
           name="role"
           value={form.role}
           onChange={onChange}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900 bg-white"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white"
         >
           {ROLE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -273,9 +204,6 @@ function FormFields({
           ))}
         </select>
       </div>
-      <p className="text-red-500 text-xs">
-        Fields marked with an asterisk (*) are required.
-      </p>
     </div>
   );
 }
@@ -283,331 +211,170 @@ function FormFields({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CouncilMembersTab() {
-  const [councils, setCouncils] = useState<Council[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [councils, setCouncils] = useState<Council[]>(MOCK_COUNCILS);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-
   const [searchQuery, setSearchQuery] = useState("");
-
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedCouncil, setSelectedCouncil] = useState<Council | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [formLoading, setFormLoading] = useState(false);
+
   const { showToast } = useToast();
   const { showConfirm } = useConfirmDialog();
 
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [formError, setFormError] = useState("");
-  const [formLoading, setFormLoading] = useState(false);
-
-  const user = useAuthStore((state) => state.user);
-  const currentUserRole = user?.role ?? "";
-
-  // Set up the page loader
-  const isInitialLoad = useRef(true);
-  const { isLoading: isPageLoading } = usePageLoader([
-    isInitialLoad.current ? loading : false,
-  ]);
-
-  // Role-based visibility filter — Ghost account always excluded
-  const visibleCouncils = useMemo(() => {
-    const withoutGhost = councils.filter((c) => !isGhostAccount(c));
-
-    if (currentUserRole === "super-admin") {
-      return withoutGhost;
-    } else if (currentUserRole === "admin") {
-      return withoutGhost.filter((c) => c.userId?.role !== "super-admin");
-    } else {
-      return withoutGhost.filter(
-        (c) => c.userId?.role !== "admin" && c.userId?.role !== "super-admin",
-      );
-    }
-  }, [councils, currentUserRole]);
-
-  // Client-side search across name, employeeId, email
-  const searchedCouncils = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return visibleCouncils;
-    return visibleCouncils.filter((c) => {
-      const name = (c.userId?.name ?? "").toLowerCase();
-      const email = (c.userId?.email ?? "").toLowerCase();
-      const empId = c.employeeId.toLowerCase();
-      return name.includes(q) || email.includes(q) || empId.includes(q);
-    });
-  }, [visibleCouncils, searchQuery]);
-
-  const fetchCouncils = useCallback(async (page = 1) => {
-    try {
-      setLoading(true);
-      setError("");
-      const res = await apiClient.get(
-        `/admin/get-all-council?page=${page}&limit=10`,
-      );
-      setCouncils(res.data.data.councils);
-      setPagination(res.data.data.pagination);
-    } catch (err) {
-      const e = err as AxiosError<{ message: string }>;
-      setError(e.response?.data?.message || "Failed to load council members");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCouncils(currentPage);
-  }, [currentPage, fetchCouncils]);
-
-  // Turn off the full-page loader once initial fetching is done
-  useEffect(() => {
-    if (!loading && isInitialLoad.current) {
-      isInitialLoad.current = false;
-    }
-  }, [loading]);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const clearSearch = () => setSearchQuery("");
+  // Search logic
+  const filteredCouncils = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return councils;
+    return councils.filter(
+      (c) =>
+        c.userId?.name.toLowerCase().includes(q) ||
+        c.employeeId.toLowerCase().includes(q) ||
+        c.userId?.email.toLowerCase().includes(q),
+    );
+  }, [councils, searchQuery]);
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setFormError("");
   };
 
-  const openAdd = () => {
+  const handleAdd = async () => {
+    setFormLoading(true);
+    await new Promise((r) => setTimeout(r, 800)); // Simulate delay
+
+    const newMember: Council = {
+      _id: Math.random().toString(36).substr(2, 9),
+      employeeId: form.employeeId,
+      userId: {
+        _id: "u" + Math.random(),
+        name: form.name,
+        email: form.email,
+        phoneNumber: form.phoneNumber,
+        role: form.role,
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    setCouncils((prev) => [newMember, ...prev]);
+    setFormLoading(false);
+    setShowAddModal(false);
+    showToast(`${form.name} added successfully (Demo)`, "success");
     setForm(EMPTY_FORM);
-    setFormError("");
-    setShowAddModal(true);
   };
 
-  const openEdit = (council: Council) => {
-    setSelectedCouncil(council);
-    setForm({
-      name: council.userId?.name ?? "",
-      email: council.userId?.email ?? "",
-      password: "",
-      phoneNumber: council.userId?.phoneNumber ?? "",
-      employeeId: council.employeeId,
-      role: council.userId?.role ?? "",
-    });
-    setFormError("");
-    setShowEditModal(true);
-  };
-
-  const openDelete = (council: Council) => {
+  const handleDelete = (id: string, name: string) => {
     showConfirm(
-      () => handleDelete(council),
-      `Are you sure you want to delete ${council.userId?.name}? This action cannot be undone.`,
+      async () => {
+        setLoading(true);
+        await new Promise((r) => setTimeout(r, 600));
+        setCouncils((prev) => prev.filter((c) => c._id !== id));
+        setLoading(false);
+        showToast(`${name} removed from council (Demo)`, "success");
+      },
+      `Are you sure you want to delete ${name}?`,
       "Delete",
       "Cancel",
     );
   };
 
-  const handleAdd = async () => {
-    try {
-      setFormLoading(true);
-      setFormError("");
-      await apiClient.post("/admin/add", form);
-      setShowAddModal(false);
-      showToast(
-        `Successfully added ${form.name} as a ${form.role} council member.`,
-        "success",
-      );
-      fetchCouncils(currentPage);
-    } catch (err) {
-      const e = err as AxiosError<{ message: string }>;
-      const message = e.response?.data?.message || "Failed to add member";
-      setFormError(message);
-      showToast(message, "error");
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!selectedCouncil) return;
-    try {
-      setFormLoading(true);
-      setFormError("");
-      await apiClient.put(`/admin/users/${selectedCouncil.userId?._id}`, {
-        name: form.name,
-        phoneNumber: form.phoneNumber,
-        role: form.role,
-      });
-      setShowEditModal(false);
-      showToast(
-        `The details of ${form.name} have been successfully updated.`,
-        "success",
-      );
-      fetchCouncils(currentPage);
-    } catch (err) {
-      const e = err as AxiosError<{ message: string }>;
-      const message = e.response?.data?.message || "Failed to update member";
-      setFormError(message);
-      showToast(message, "error");
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  const handleDelete = async (council: Council) => {
-    try {
-      setFormLoading(true);
-      await apiClient.delete(
-        `/admin/users/${council.userId?._id}?role=${council.userId?.role}`,
-      );
-      showToast(
-        `${council.userId?.name} has been successfully deleted from the council records.`,
-        "success",
-      );
-      const newPage =
-        councils.length === 1 && currentPage > 1
-          ? currentPage - 1
-          : currentPage;
-      setCurrentPage(newPage);
-      fetchCouncils(newPage);
-    } catch (err) {
-      const e = err as AxiosError<{ message: string }>;
-      showToast(
-        e.response?.data?.message || "Failed to delete member",
-        "error",
-      );
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  // Prevent rendering the table content until the initial loader finishes
-  if (isPageLoading) {
-    return <CustomLoader fullPage message="Loading members..." />;
-  }
-
-  const tableRows = searchQuery.trim() ? searchedCouncils : visibleCouncils;
-  const showPagination =
-    !searchQuery.trim() && pagination && pagination.totalPages > 1;
-
   return (
     <section>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
-        <h3 className="text-lg font-bold text-gray-800 shrink-0">
-          Council Members
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-bold text-gray-800">Council Members</h3>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-72">
+          <div className="relative flex-1 sm:w-64">
             <Search
               size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
             <input
               type="text"
               value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search by name, emp ID or email…"
-              className="w-full border border-gray-200 bg-gray-50 rounded-lg pl-8 pr-8 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search members..."
+              className="w-full border border-gray-200 bg-gray-50 rounded-lg pl-8 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
-            {searchQuery && (
-              <button
-                onClick={clearSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-red-600 hover:text-red-700 transition cursor-pointer"
-                aria-label="Clear search"
-              >
-                <X size={13} />
-              </button>
-            )}
           </div>
 
           <button
-            onClick={openAdd}
-            className="bg-blue-900 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-800 transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-900 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-800 flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Plus size={14} /> Add Member
           </button>
         </div>
       </div>
 
-      {/* Search result summary */}
-      {searchQuery.trim() && (
-        <p className="text-xs text-gray-500 mb-3">
-          {searchedCouncils.length === 0
-            ? `No results for "${searchQuery}"`
-            : `${searchedCouncils.length} result${searchedCouncils.length !== 1 ? "s" : ""} for "${searchQuery}"`}
-        </p>
-      )}
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
-          {error}
-        </div>
-      )}
-
       {/* Table */}
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
-              <th className="p-3 font-medium">Employee ID</th>
-              <th className="p-3 font-medium">Name</th>
-              <th className="p-3 font-medium">Role</th>
-              <th className="p-3 font-medium">Email</th>
-              <th className="p-3 font-medium text-center">Actions</th>
+            <tr className="bg-gray-50 text-gray-500 text-[11px] uppercase tracking-wider border-b border-gray-200">
+              <th className="p-3 font-bold">Employee ID</th>
+              <th className="p-3 font-bold">Name</th>
+              <th className="p-3 font-bold">Role</th>
+              <th className="p-3 font-bold">Email</th>
+              <th className="p-3 font-bold text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="text-sm divide-y divide-gray-100">
-            {loading ? (
+            {filteredCouncils.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-400">
-                  <Loader className="animate-spin mx-auto mb-1" size={20} />
-                  Loading members...
-                </td>
-              </tr>
-            ) : tableRows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-400">
-                  {searchQuery.trim()
-                    ? "No members match your search"
-                    : "No council members found"}
+                <td
+                  colSpan={5}
+                  className="p-8 text-center text-gray-400 italic"
+                >
+                  No members found matching your search.
                 </td>
               </tr>
             ) : (
-              tableRows.map((council) => (
-                <tr key={council._id} className="hover:bg-gray-50">
-                  <td className="p-3 text-gray-600">{council.employeeId}</td>
-                  <td className="p-3 font-medium text-gray-800">
-                    {council.userId?.name ?? "-"}
+              filteredCouncils.map((council) => (
+                <tr
+                  key={council._id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td className="p-3 font-mono text-xs text-gray-600">
+                    {council.employeeId}
+                  </td>
+                  <td className="p-3 font-semibold text-gray-800">
+                    {council.userId?.name}
                   </td>
                   <td className="p-3">
-                    <span className="bg-blue-50 text-blue-800 px-2 py-1 rounded text-xs font-bold capitalize">
-                      {council.userId?.role ?? "-"}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
+                        council.userId?.role === "super-admin"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {council.userId?.role}
                     </span>
                   </td>
-                  <td className="p-3 text-gray-500">
-                    {council.userId?.email ?? "-"}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-center gap-3">
-                      <button
-                        onClick={() => openDelete(council)}
-                        disabled={council.userId?.role === "super-admin"}
-                        className={`transition ${
-                          council.userId?.role === "super-admin"
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-red-600 hover:text-red-700 cursor-pointer"
-                        }`}
-                        title={
-                          council.userId?.role === "super-admin"
-                            ? "Cannot be deleted"
-                            : "Delete"
-                        }
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                  <td className="p-3 text-gray-500">{council.userId?.email}</td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() =>
+                        handleDelete(
+                          council._id,
+                          council.userId?.name || "Member",
+                        )
+                      }
+                      disabled={
+                        council.userId?.role === "super-admin" || loading
+                      }
+                      className={`p-1.5 rounded hover:bg-red-50 transition-colors ${
+                        council.userId?.role === "super-admin"
+                          ? "text-gray-200"
+                          : "text-red-500 cursor-pointer"
+                      }`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))
@@ -616,93 +383,27 @@ export default function CouncilMembersTab() {
         </table>
       </div>
 
-      {/* Pagination — hidden while searching */}
-      {showPagination && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-4 text-sm text-gray-600">
-          <span>
-            Showing {(pagination!.currentPage - 1) * pagination!.limit + 1}–
-            {Math.min(
-              pagination!.currentPage * pagination!.limit,
-              pagination!.totalCouncil,
-            )}{" "}
-            of {pagination!.totalCouncil}
-          </span>
-          <div className="flex gap-2">
-            <button
-              disabled={!pagination!.hasPrevPage}
-              onClick={() => setCurrentPage((p) => p - 1)}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Prev
-            </button>
-            <button
-              disabled={!pagination!.hasNextPage}
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Add Modal */}
       {showAddModal && (
         <Modal
           title="Add Council Member"
           onClose={() => setShowAddModal(false)}
         >
-          <FormFields
-            isAdd={true}
-            form={form}
-            formError={formError}
-            onChange={handleFormChange}
-          />
-          <div className="flex justify-end gap-2 mt-5">
+          <FormFields isAdd={true} form={form} onChange={handleFormChange} />
+          <div className="flex justify-end gap-2 mt-6">
             <button
               onClick={() => setShowAddModal(false)}
-              className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+              className="px-4 py-2 text-sm text-gray-500 cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={handleAdd}
-              disabled={formLoading}
-              className="px-4 py-2 text-sm bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              disabled={formLoading || !form.name || !form.email}
+              className="px-6 py-2 text-sm bg-blue-900 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               {formLoading && <Loader size={14} className="animate-spin" />}
-              Add
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Edit Modal */}
-      {showEditModal && selectedCouncil && (
-        <Modal
-          title="Edit Council Member"
-          onClose={() => setShowEditModal(false)}
-        >
-          <FormFields
-            isAdd={false}
-            form={form}
-            formError={formError}
-            onChange={handleFormChange}
-          />
-          <div className="flex justify-end gap-2 mt-5">
-            <button
-              onClick={() => setShowEditModal(false)}
-              className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleEdit}
-              disabled={formLoading}
-              className="px-4 py-2 text-sm bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-            >
-              {formLoading && <Loader size={14} className="animate-spin" />}
-              Save Changes
+              Create Account
             </button>
           </div>
         </Modal>

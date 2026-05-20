@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastContext";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialogContext";
-import { apiClient } from "@/lib/axios-instance";
-import { AxiosError } from "axios";
 
 // Adjust these import paths to match where your files are actually located
 import CustomLoader from "@/components/ui/CustomLoader";
@@ -37,16 +35,85 @@ interface Tender {
   userId?: { name: string; email: string };
 }
 
+// ─── Mock Data & Simulation ───────────────────────────────────────────────────
+
+let MOCK_TENDERS: Tender[] = [
+  {
+    _id: "1",
+    title: "Tender for Supply of Laboratory Equipment",
+    category: "GOODS",
+    status: "ongoing",
+    fileUrl: "#",
+    fileName: "lab_equipment.pdf",
+    fileSize: 1250000,
+    isNew: true,
+    createdAt: new Date().toISOString(),
+    userId: { name: "Admin User", email: "admin@example.com" },
+  },
+  {
+    _id: "2",
+    title: "Construction of New Science Block Phase II",
+    category: "WORKS",
+    status: "ongoing",
+    fileUrl: "#",
+    fileName: "science_block_phase2.pdf",
+    fileSize: 4500000,
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    userId: { name: "Admin User", email: "admin@example.com" },
+  },
+  {
+    _id: "3",
+    title: "Annual Maintenance Contract for IT Infrastructure",
+    category: "SERVICES",
+    status: "ended",
+    fileUrl: "#",
+    fileName: "amc_it_infra.pdf",
+    fileSize: 850000,
+    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
+    userId: { name: "John Doe", email: "john@example.com" },
+  },
+  {
+    _id: "4",
+    title: "Procurement of Desktop Computers and Printers",
+    category: "GOODS",
+    status: "ended",
+    fileUrl: "#",
+    fileName: "desktops_printers.pdf",
+    fileSize: 2100000,
+    createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
+    userId: { name: "Admin User", email: "admin@example.com" },
+  },
+  {
+    _id: "5",
+    title: "Campus Wi-Fi Upgradation Project",
+    category: "SERVICES",
+    status: "ongoing",
+    fileUrl: "#",
+    fileName: "wifi_upgrade.pdf",
+    fileSize: 3400000,
+    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+    userId: { name: "Jane Smith", email: "jane@example.com" },
+  },
+  ...Array.from({ length: 7 }).map((_, i) => ({
+    _id: `mock-${i + 6}`,
+    title: `Generic Infrastructure Tender Request 0${i + 1}`,
+    category: i % 2 === 0 ? "WORKS" : "GOODS",
+    status: (i % 3 === 0 ? "ended" : "ongoing") as "ongoing" | "ended",
+    fileUrl: "#",
+    fileName: `doc_0${i + 1}.pdf`,
+    fileSize: 500000 + i * 150000,
+    createdAt: new Date(Date.now() - 86400000 * (i + 10)).toISOString(),
+    userId: { name: "Demo User", email: "demo@example.com" },
+  })),
+];
+
+// Mock API Delay Generator
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const extractErrorMessage = (err: unknown, fallback: string): string => {
-  if (err && typeof err === "object") {
-    const axiosMsg = (err as AxiosError<{ message?: string }>)?.response?.data
-      ?.message;
-    if (axiosMsg) return axiosMsg;
-    const errMsg = (err as { message?: string }).message;
-    if (errMsg) return errMsg;
-  }
+  if (err instanceof Error) return err.message;
   return fallback;
 };
 
@@ -91,13 +158,23 @@ const AddTenderModal = ({
 
     setSaving(true);
     try {
-      const fd = new FormData();
-      fd.append("title", title.trim());
-      fd.append("category", category.trim());
-      fd.append("tender", file);
-      await apiClient.post("/tender", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await delay(1200); // Simulate API Upload Wait
+
+      const newTender: Tender = {
+        _id: Math.random().toString(36).substring(2, 9),
+        title: title.trim(),
+        category: category.trim().toUpperCase(),
+        status: "ongoing",
+        fileUrl: "#", // Dummy URL
+        fileName: file.name,
+        fileSize: file.size,
+        isNew: true,
+        createdAt: new Date().toISOString(),
+        userId: { name: "Demo Upload User", email: "demo@example.com" },
+      };
+
+      MOCK_TENDERS = [newTender, ...MOCK_TENDERS];
+
       showToast(`"${title.trim()}" has been uploaded successfully!`, "success");
       onSuccess();
       onClose();
@@ -281,15 +358,25 @@ const EditTenderModal = ({
 
     setSaving(true);
     try {
-      const fd = new FormData();
-      fd.append("title", title.trim());
-      fd.append("category", category.trim());
-      fd.append("status", status);
-      if (file) fd.append("tender", file);
+      await delay(1000); // Simulate API call wait
 
-      await apiClient.patch(`/tender/update-tender/${tender._id}`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // Update mock database
+      const index = MOCK_TENDERS.findIndex((t) => t._id === tender._id);
+      if (index !== -1) {
+        MOCK_TENDERS[index] = {
+          ...MOCK_TENDERS[index],
+          title: title.trim(),
+          category: category.trim(),
+          status,
+          ...(file
+            ? {
+                fileName: file.name,
+                fileSize: file.size,
+              }
+            : {}),
+        };
+      }
+
       showToast(`"${title.trim()}" has been updated successfully!`, "success");
       onSuccess();
       onClose();
@@ -370,7 +457,7 @@ const EditTenderModal = ({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs text-blue-700 hover:underline mb-2"
               >
-                <Eye size={11} /> View current file
+                <Eye size={11} /> View current file ({tender.fileName})
               </a>
             )}
             <div
@@ -508,23 +595,56 @@ export default function TendersPage() {
   const fetchTenders = useCallback(async () => {
     setLoading(true);
     // 600ms delay to prevent fast flickering on table inline loading
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await delay(600);
     try {
-      const params: Record<string, string> = {};
-      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-      if (statusFilter) params.status = statusFilter;
-      if (categoryFilter) params.category = categoryFilter;
+      // Apply filters on the MOCK DATA
+      let filtered = [...MOCK_TENDERS];
 
-      params.page = String(page);
-      params.limit = String(LIMIT);
+      if (debouncedSearch.trim()) {
+        filtered = filtered.filter((t) =>
+          t.title.toLowerCase().includes(debouncedSearch.trim().toLowerCase()),
+        );
+      }
+      if (statusFilter) {
+        filtered = filtered.filter((t) => t.status === statusFilter);
+      }
+      if (categoryFilter) {
+        filtered = filtered.filter((t) => t.category === categoryFilter);
+      }
 
-      const { data } = await apiClient.get("/tender/get-all-tenders", {
-        params,
-      });
-      setTenders(data.data.tenders);
-      setTotalCount(data.data.totalCount);
-      setStatusWiseCounts(data.data.statusWiseCounts ?? []);
-      setCategoryWiseCounts(data.data.categoryWiseCounts ?? []);
+      // Calculate Stats Before Pagination
+      const calculatedTotalCount = filtered.length;
+
+      const onGoingCount = filtered.filter(
+        (t) => t.status === "ongoing",
+      ).length;
+      const endedCount = filtered.filter((t) => t.status === "ended").length;
+      const calculatedStatusWise = [
+        { _id: "ongoing", count: onGoingCount },
+        { _id: "ended", count: endedCount },
+      ];
+
+      const catMap = filtered.reduce(
+        (acc, curr) => {
+          acc[curr.category] = (acc[curr.category] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
+      const calculatedCategoryWise = Object.keys(catMap).map((k) => ({
+        _id: k,
+        count: catMap[k],
+      }));
+
+      // Apply Pagination
+      const startIndex = (page - 1) * LIMIT;
+      const paginatedData = filtered.slice(startIndex, startIndex + LIMIT);
+
+      setTenders(paginatedData);
+      setTotalCount(calculatedTotalCount);
+      setStatusWiseCounts(calculatedStatusWise);
+      setCategoryWiseCounts(calculatedCategoryWise);
     } catch (err) {
       showToast(extractErrorMessage(err, "Failed to fetch tenders"), "error");
     } finally {
@@ -545,10 +665,13 @@ export default function TendersPage() {
         async () => {
           setTogglingId(tender._id);
           try {
-            await apiClient.patch(
-              `/tender/update-tender-status/${tender._id}/status`,
-              { status: newStatus },
-            );
+            await delay(500); // Simulate network wait
+
+            const index = MOCK_TENDERS.findIndex((t) => t._id === tender._id);
+            if (index !== -1) {
+              MOCK_TENDERS[index].status = newStatus;
+            }
+
             showToast(`Tender marked as "${newStatus}"`, "success");
             fetchTenders();
           } catch (err) {
@@ -575,7 +698,11 @@ export default function TendersPage() {
         async () => {
           setDeletingId(id);
           try {
-            await apiClient.delete(`/tender/delete-tender/${id}`);
+            await delay(600); // Simulate network wait
+
+            // Delete from Mock DB
+            MOCK_TENDERS = MOCK_TENDERS.filter((t) => t._id !== id);
+
             showToast(
               `"${deletedTitle}" has been deleted successfully!`,
               "success",
@@ -750,7 +877,7 @@ export default function TendersPage() {
                   {loading && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center py-14 text-gray-400"
                       >
                         <div className="flex flex-col items-center gap-2">
@@ -801,13 +928,13 @@ export default function TendersPage() {
                         <td className="p-4 text-xs text-center text-gray-500">
                           {formatSize(tender.fileSize)}
                         </td>
-                        <td className="p-4 text-gray-600 text-center text-xs">
-                          <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-                            {tender?.userId?.name || "N/A"}
-                          </span>
-                        </td>
                         <td className="p-4 text-xs text-center text-gray-500">
                           {formatDate(tender.createdAt)}
+                        </td>
+                        <td className="p-4 text-gray-600 text-center text-xs">
+                          <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium whitespace-nowrap">
+                            {tender?.userId?.name || "N/A"}
+                          </span>
                         </td>
                         <td className="p-4">
                           <div className="flex items-center justify-center gap-3">
@@ -884,7 +1011,7 @@ export default function TendersPage() {
                   {!loading && tenders.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center py-14 text-gray-400"
                       >
                         <div className="flex flex-col items-center gap-2">

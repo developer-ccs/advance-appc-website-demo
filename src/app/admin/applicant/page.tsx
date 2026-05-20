@@ -586,7 +586,7 @@ export default function ApplicantsPage() {
                 disabled={!pagination.hasPrevPage || isTableLoading}
                 className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
-                Previous
+                ← Prev
               </button>
 
               {/* Page Numbers */}
@@ -644,7 +644,7 @@ export default function ApplicantsPage() {
                 disabled={!pagination.hasNextPage || isTableLoading}
                 className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 bg-white rounded-md text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors cursor-pointer"
               >
-                Next
+                Next →
               </button>
             </div>
           </div>
