@@ -241,8 +241,8 @@ export default function AdminLayout({
       ],
     },
     {
-      name: "Forms",
-      href: "/admin/forms",
+      name: "Issue Certificate",
+      href: "/admin/issue-certificate",
       icon: FileText,
       roles: [
         "admin",
