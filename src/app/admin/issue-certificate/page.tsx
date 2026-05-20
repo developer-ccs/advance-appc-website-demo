@@ -37,8 +37,7 @@ const generateMockData = (): Candidate[] =>
 
 let MOCK_DB = generateMockData();
 
-// ─── Certificate Preview Modal (Fixed for Printing) ─────────────────────────
-// ─── Certificate Preview Modal (Individual Data Overlay) ─────────────────
+// ─── Certificate Preview Modal ─────────────────
 const IssuePreviewModal = ({
   candidate,
   onClose,
@@ -67,8 +66,8 @@ const IssuePreviewModal = ({
         {/* Header UI */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 print:hidden">
           <h3 className="text-md font-bold text-blue-900 flex items-center gap-2">
-            <Award size={18} className="text-green-700" /> Certificate
-            Individual Overlay
+            <Award size={18} className="text-green-700" /> APPC Certificate
+            Preview
           </h3>
           <button
             onClick={onClose}
@@ -125,11 +124,10 @@ const IssuePreviewModal = ({
               </div>
 
               {/* 3. Individual Data Overlays */}
-              {/* Adjust 'top' and 'left' values below to match your image lines exactly */}
 
-              {/* Name Field */}
+              {/* Name */}
               <div
-                className="absolute text-black"
+                className="absolute text-black uppercase"
                 style={{
                   top: "766px",
                   left: "300px",
@@ -140,9 +138,9 @@ const IssuePreviewModal = ({
                 {candidate.name}
               </div>
 
-              {/* Qualification Field */}
+              {/* Qualification */}
               <div
-                className="absolute text-black"
+                className="absolute text-black uppercase"
                 style={{
                   top: "800px",
                   left: "300px",
@@ -153,7 +151,7 @@ const IssuePreviewModal = ({
                 {candidate.course}
               </div>
 
-              {/* Registered Number Field */}
+              {/* Registered Number */}
               <div
                 className="absolute text-black"
                 style={{
@@ -166,7 +164,7 @@ const IssuePreviewModal = ({
                 {candidate.registrationNumber}
               </div>
 
-              {/* Validity Field */}
+              {/* Validity */}
               <div
                 className="absolute text-black"
                 style={{
@@ -181,7 +179,7 @@ const IssuePreviewModal = ({
                   : "........................"}
               </div>
 
-              {/* Date Field (Bottom Left) */}
+              {/* Date (Bottom Left) */}
               <div
                 className="absolute text-black"
                 style={{
@@ -194,6 +192,26 @@ const IssuePreviewModal = ({
                 {candidate.issueDate
                   ? new Date(candidate.issueDate).toLocaleDateString("en-GB")
                   : ""}
+              </div>
+
+              {/* 4. Registrar Signature (Bottom Right) */}
+              {/* Positioned right above the REGISTRAR text in the template */}
+              <div
+                className="absolute"
+                style={{
+                  bottom: "125px",
+                  right: "100px",
+                  width: "180px",
+                  height: "60px",
+                  zIndex: 20,
+                }}
+              >
+                <img
+                  src="/images/signature.png" // Path to your signature image
+                  alt="Registrar Signature"
+                  className="w-full h-full object-contain"
+                  style={{ mixBlendMode: "multiply" }} // Helps blend white backgrounds of scanned signatures
+                />
               </div>
             </div>
           </div>
