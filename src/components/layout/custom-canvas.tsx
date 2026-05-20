@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserCircle2, ShieldCheck, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { ApplicantLogin } from "@/components/forms/applicant-login";
 import { ApplicantRegister } from "@/components/forms/applicant-register";
 import { CouncilLogin } from "@/components/forms/council-login";
-// import { CouncilRegister } from "@/components/forms/council-register";
 import { ApplicantForgot } from "@/components/forms/applicant-forgot";
 
 import { useToast } from "../ui/ToastContext";
-
 import type { ViewType } from "@/utils/types";
 
 const CURRENT_YEAR = 2026;
@@ -27,28 +25,18 @@ export function CustomOffcanvas({
   initialView,
 }: LoginOffcanvasProps) {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"applicant" | "council">(
-    "applicant",
-  );
+
+  // Track only the current view
   const [currentView, setCurrentView] = useState<ViewType>(
     initialView ?? "applicant-login",
   );
 
+  // Helper to determine if we are in a council-related view for styling
+  const isCouncil = currentView.startsWith("council");
+
   const handleSwitchView = (view: ViewType) => {
     setCurrentView(view);
   };
-
-  const handleTabChange = (tab: "applicant" | "council") => {
-    setActiveTab(tab);
-    const lockedViews: ViewType[] = ["applicant-forgot", "council-forgot"];
-
-    if (!lockedViews.includes(currentView)) {
-      setCurrentView(tab === "applicant" ? "applicant-login" : "council-login");
-    }
-  };
-
-  // Views where tabs should be hidden
-  const hideTabs = ["applicant-forgot", "council-forgot"].includes(currentView);
 
   const renderContent = () => {
     switch (currentView) {
@@ -85,14 +73,6 @@ export function CustomOffcanvas({
           />
         );
 
-      // case "council-register":
-      //   return (
-      //     <CouncilRegister
-      //       onClose={() => onOpenChange(false)}
-      //       onSwitchView={handleSwitchView}
-      //     />
-      //   );
-
       case "council-forgot":
         return (
           <div className="text-center py-6">
@@ -113,6 +93,7 @@ export function CustomOffcanvas({
     }
   };
 
+  // Sync view when the offcanvas is opened from the Navbar
   useEffect(() => {
     if (open && initialView) {
       setCurrentView(initialView);
@@ -146,49 +127,12 @@ export function CustomOffcanvas({
 
         {/* Body */}
         <div
-          className={`flex-1 overflow-y-auto px-6 py-6 flex flex-col items-center justify-center ${
-            activeTab === "council"
+          className={`flex-1 overflow-y-auto px-6 py-6 flex flex-col items-center justify-center transition-colors duration-300 ${
+            isCouncil
               ? "bg-linear-to-b from-gray-50 to-gray-100"
               : "bg-linear-to-b from-white to-gray-50"
           }`}
         >
-          {/* ✅ Tabs — hidden on forgot screens */}
-          {!hideTabs && (
-            <div className="max-w-md mx-auto w-full mb-6">
-              <div className="relative flex bg-gray-100 rounded-lg p-1">
-                <div
-                  className={`absolute top-1 bottom-1 w-1/2 bg-white shadow rounded-md transition-transform duration-300 ${
-                    activeTab === "council"
-                      ? "translate-x-full"
-                      : "translate-x-0"
-                  }`}
-                />
-                <button
-                  onClick={() => handleTabChange("applicant")}
-                  className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium ${
-                    activeTab === "applicant"
-                      ? "text-blue-600"
-                      : "text-gray-600 cursor-pointer"
-                  }`}
-                >
-                  <UserCircle2 size={18} />
-                  Applicant
-                </button>
-                <button
-                  onClick={() => handleTabChange("council")}
-                  className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium ${
-                    activeTab === "council"
-                      ? "text-indigo-600"
-                      : "text-gray-600 cursor-pointer"
-                  }`}
-                >
-                  <ShieldCheck size={18} />
-                  Council
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Content */}
           <div className="max-w-md mx-auto w-full">{renderContent()}</div>
         </div>

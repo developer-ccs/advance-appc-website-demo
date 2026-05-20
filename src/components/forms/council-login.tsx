@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type SyntheticEvent } from "react";
+import Image from "next/image"; // Import Image component
 import {
   Lock,
   ShieldCheck,
@@ -64,20 +65,14 @@ export function CouncilLogin({
   const fetchCaptcha = async () => {
     try {
       setLoadingCaptcha(true);
-      // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // Generate random 5-character string
       const text = Math.random().toString(36).substring(2, 7).toUpperCase();
-
-      // Mock SVG for the captcha (indigo themed for admin)
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40">
         <rect width="100%" height="100%" fill="#f9fafb" rx="4"/>
         <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="monospace" font-size="20" font-weight="bold" fill="#4f46e5" letter-spacing="4" style="user-select: none;">${text}</text>
         <line x1="10" y1="20" x2="110" y2="20" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4" />
       </svg>`;
-
-      setCaptchaId(text); // Storing the answer as the ID for demo validation
+      setCaptchaId(text);
       setCaptchaSvg(svg);
     } catch (err) {
       setError("Failed to load CAPTCHA. Please refresh.");
@@ -100,7 +95,6 @@ export function CouncilLogin({
     e.preventDefault();
     setError("");
 
-    // 1. Verify Demo Captcha
     if (captchaInput.toUpperCase() !== captchaId) {
       setError("Invalid CAPTCHA. Please try again.");
       generateCaptcha();
@@ -110,37 +104,26 @@ export function CouncilLogin({
     setIsLoading(true);
 
     try {
-      // 2. Simulate API request delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // 3. Create Mock Admin User
       const mockToken = "demo-admin-access-token";
       const mockUser: CouncilUser = {
         _id: "demo-admin-123",
         name: "Demo Admin",
-        email: email, // Use the email they typed in
+        email: email,
         role: UserRole.ADMIN,
       };
 
-      // For demo, we assume they don't need to change password
-      const mustChangePassword = false;
-
-      // 4. Set state and cookies
       setAuthCookie(mockToken);
       setAuth(mockToken, mockUser);
-
-      // Assign fake demo permissions
       setPermissions(["manage_users", "view_reports", "edit_content"]);
 
       onLoginSuccess(mockToken, mockUser);
       resetForm();
       onClose();
 
-      // 5. Navigate based on mock flags
-      const needsPasswordChange =
-        mockUser.role !== UserRole.SUPER_ADMIN && mustChangePassword;
+      const mustChangePassword = false;
       useAuthStore.getState().setTempPassword(password);
-      router.push(needsPasswordChange ? "/admin/change-password" : "/admin");
+      router.push(mustChangePassword ? "/admin/change-password" : "/admin");
     } catch (err) {
       setError("Login failed. Check credentials.");
       generateCaptcha();
@@ -150,147 +133,161 @@ export function CouncilLogin({
   };
 
   return (
-    <form onSubmit={handleLogin} className="space-y-4">
-      {/* Restricted Access Notice */}
-      <div className="bg-red-50 border-l-4 border-red-700 p-3 mb-2 text-xs text-gray-700">
-        <strong>Restricted Access:</strong> This portal is strictly for
-        authorized APPC officials only.
-      </div>
-
-      {/* Email */}
-      <div>
-        <label
-          htmlFor="council-email"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Admin Email
-        </label>
-        <div className="flex items-center border rounded-md bg-white">
-          <div className="px-3 text-gray-400">
-            <ShieldCheck size={18} />
-          </div>
-          <input
-            id="council-email"
-            type="email"
-            placeholder="Enter email (admin@example.com)"
-            className="w-full px-2 py-2 text-sm outline-none"
-            value={email}
-            autoComplete="username"
-            onChange={(e) => setEmail(e.target.value.toLowerCase())}
-            required
+    <div className="w-full">
+      {/* Logo Section */}
+      <div className="flex flex-col items-center mb-6">
+        <div className="relative w-20 h-20 mb-3">
+          <Image
+            src="/logos/appc-logo.png" // Ensure logo.png is in your public folder
+            alt="APPC Logo"
+            fill
+            className="object-contain"
+            priority
           />
         </div>
+        <h3 className="text-lg font-bold text-indigo-950 uppercase tracking-tight">
+          Council Portal
+        </h3>
       </div>
 
-      {/* Password */}
-      <div>
-        <label
-          htmlFor="council-password"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Password
-        </label>
-        <div className="flex items-center border rounded-md bg-white">
-          <div className="px-3 text-gray-400">
-            <Lock size={18} />
-          </div>
-          <input
-            type={showPassword ? "text" : "password"}
-            id="council-password"
-            placeholder="Enter password"
-            className="w-full px-2 py-2 text-sm outline-none"
-            value={password}
-            autoComplete="current-password"
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            className="px-3 text-gray-400 hover:text-gray-600 transition cursor-pointer"
-            aria-label={showPassword ? "Hide password" : "Show password"}
+      <form onSubmit={handleLogin} className="space-y-4">
+        {/* Restricted Access Notice */}
+        <div className="bg-red-50 border-l-4 border-red-600 p-3 mb-4 text-[11px] leading-relaxed text-red-800 rounded-r-md shadow-sm">
+          <strong className="block mb-0.5">Restricted Access:</strong>
+          This portal is strictly for authorized APPC officials only.
+          Unauthorized access is prohibited.
+        </div>
+
+        {/* Email */}
+        <div>
+          <label
+            htmlFor="council-email"
+            className="block text-sm font-medium text-gray-700 mb-1"
           >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
+            Admin Email
+          </label>
+          <div className="flex items-center border rounded-md bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <div className="px-3 text-gray-400 border-r py-2">
+              <ShieldCheck size={18} />
+            </div>
+            <input
+              id="council-email"
+              type="email"
+              placeholder="admin@example.com"
+              className="w-full px-3 py-2 text-sm outline-none"
+              value={email}
+              autoComplete="username"
+              onChange={(e) => setEmail(e.target.value.toLowerCase())}
+              required
+            />
+          </div>
         </div>
-      </div>
 
-      {/* CAPTCHA */}
-      <div>
-        <p className="text-sm font-medium text-gray-700 mb-1">Verification</p>
-        <div className="border rounded-md overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
-            <span className="font-mono text-xl font-medium tracking-wide text-gray-800">
-              {loadingCaptcha ? (
-                <span className="after:content-['.'] after:animate-[dots_1.2s_steps(3,end)_infinite]">
-                  Loading
-                </span>
-              ) : (
-                <div dangerouslySetInnerHTML={{ __html: captchaSvg }} />
-              )}
-            </span>
+        {/* Password */}
+        <div>
+          <label
+            htmlFor="council-password"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Password
+          </label>
+          <div className="flex items-center border rounded-md bg-white focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all">
+            <div className="px-3 text-gray-400 border-r py-2">
+              <Lock size={18} />
+            </div>
+            <input
+              type={showPassword ? "text" : "password"}
+              id="council-password"
+              placeholder="••••••••"
+              className="w-full px-3 py-2 text-sm outline-none"
+              value={password}
+              autoComplete="current-password"
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             <button
               type="button"
-              onClick={generateCaptcha}
-              title="Refresh"
-              className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-indigo-600 hover:text-indigo-700 hover:bg-gray-50 cursor-pointer transition"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="px-3 text-gray-400 hover:text-indigo-600 transition cursor-pointer"
             >
-              <RefreshCw
-                size={16}
-                className={loadingCaptcha ? "animate-spin" : ""}
-              />
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          <input
-            id="captcha"
-            name="captcha"
-            type="text"
-            placeholder="Type the text above..."
-            className="w-full px-4 py-2.5 text-sm outline-none bg-white placeholder-gray-300"
-            value={captchaInput}
-            onChange={(e) => setCaptchaInput(e.target.value)}
-            required
-          />
         </div>
-      </div>
 
-      {/* Error */}
-      {error && (
-        <div className="flex justify-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm p-2 rounded">
-          <AlertCircle size={16} className="mt-0.5" />
-          <span>{error}</span>
+        {/* CAPTCHA */}
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-1">Verification</p>
+          <div className="border rounded-md overflow-hidden bg-white">
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+              <span className="font-mono">
+                {loadingCaptcha ? (
+                  <span className="text-xs text-gray-400">Loading...</span>
+                ) : (
+                  <div dangerouslySetInnerHTML={{ __html: captchaSvg }} />
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={generateCaptcha}
+                className="p-1.5 rounded-full hover:bg-gray-200 text-indigo-600 transition cursor-pointer"
+              >
+                <RefreshCw
+                  size={16}
+                  className={loadingCaptcha ? "animate-spin" : ""}
+                />
+              </button>
+            </div>
+            <input
+              id="captcha"
+              type="text"
+              placeholder="Type the verification text"
+              className="w-full px-4 py-2.5 text-sm outline-none"
+              value={captchaInput}
+              onChange={(e) => setCaptchaInput(e.target.value)}
+              required
+            />
+          </div>
         </div>
-      )}
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed text-white py-2 rounded-md cursor-pointer transition mt-2"
-      >
-        {isLoading ? (
-          <>
-            <RefreshCw size={18} className="animate-spin" />
-            <span>Accessing...</span>
-          </>
-        ) : (
-          <>
-            <span>Access Portal</span>
-            <ArrowRight size={18} />
-          </>
+        {/* Error */}
+        {error && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-100 text-red-600 text-xs p-3 rounded-md">
+            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
         )}
-      </button>
 
-      {/* Forgot Password */}
-      <div className="text-center">
+        {/* Submit */}
         <button
-          type="button"
-          onClick={() => onSwitchView("applicant-forgot")}
-          className="text-sm text-indigo-600 hover:underline cursor-pointer"
+          type="submit"
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed text-white py-2.5 rounded-md font-semibold transition mt-2 shadow-md shadow-indigo-200"
         >
-          Forgot password?
+          {isLoading ? (
+            <>
+              <RefreshCw size={18} className="animate-spin" />
+              <span>Verifying Credentials...</span>
+            </>
+          ) : (
+            <>
+              <span>Access Portal</span>
+              <ArrowRight size={18} />
+            </>
+          )}
         </button>
-      </div>
-    </form>
+
+        {/* Forgot Password */}
+        <div className="text-center pt-2">
+          <button
+            type="button"
+            onClick={() => onSwitchView("council-forgot")}
+            className="text-sm text-indigo-600 hover:underline cursor-pointer font-medium"
+          >
+            Forgot administrative password?
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

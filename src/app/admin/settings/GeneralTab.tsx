@@ -125,9 +125,9 @@ function SerialCounterCard({ counter }: { counter: any }) {
         setSaving(true);
         await new Promise((res) => setTimeout(res, 800));
         setSaving(false);
-        showToast("Counter updated successfully (Demo)", "success");
+        showToast("Counter updated successfully", "success");
       },
-      "Update serial counter? (Demo Mode)",
+      "Update serial counter?",
       "Yes, Update",
       "Cancel",
     );
@@ -212,7 +212,7 @@ function BackupSection() {
         setRunLoading(false);
         showToast("Backup simulated successfully!", "success");
       },
-      "Run full system backup? (Demo Mode)",
+      "Run full system backup?",
       "Run Now",
       "Cancel",
     );
@@ -319,9 +319,6 @@ export default function GeneralTab() {
     <div className="space-y-7">
       <div className="flex items-center justify-between border-b border-gray-100 pb-2">
         <h2 className="text-lg font-bold text-gray-800">General Settings</h2>
-        <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded uppercase tracking-wider">
-          Demo Mode
-        </span>
       </div>
 
       {/* ── Organization Identity ── */}

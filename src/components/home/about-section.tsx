@@ -85,7 +85,7 @@ export default function AboutSection() {
   };
 
   return (
-    <section className="mb-12 bg-white rounded-lg shadow-sm border-t-4 border-blue-800 overflow-hidden">
+    <section className="bg-white rounded-lg shadow-sm border-t-4 border-blue-800 overflow-hidden">
       <div className="flex flex-col lg:flex-row items-stretch">
         {/* Left Side: About Text */}
         <div className="flex-1 p-6 flex flex-col justify-center">

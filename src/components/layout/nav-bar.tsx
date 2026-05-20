@@ -35,9 +35,9 @@ export function Navbar() {
   const [loginOpen, setLoginOpen] = useState(false);
 
   // Optional: Track which login was clicked if your offcanvas needs to know
-  const [loginType, setLoginType] = useState<"applicant" | "council" | null>(
-    null,
-  );
+  const [loginView, setLoginView] = useState<
+    "applicant-login" | "council-login"
+  >("applicant-login");
 
   const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(
     null,
@@ -241,7 +241,7 @@ export function Navbar() {
         <button
           className="flex items-center justify-center gap-1.5 cursor-pointer px-4 py-1.5 rounded-full bg-[#2557D6] hover:bg-[#2557D6]/90 text-white font-bold transition-all duration-200 text-xs md:text-[13px] whitespace-nowrap shadow-sm"
           onClick={() => {
-            setLoginType("applicant");
+            setLoginView("applicant-login");
             setLoginOpen(true);
           }}
         >
@@ -255,7 +255,7 @@ export function Navbar() {
         <button
           className="flex items-center justify-center gap-1.5 cursor-pointer px-4 py-1.5 rounded-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold transition-all duration-200 text-xs md:text-[13px] whitespace-nowrap shadow-sm"
           onClick={() => {
-            setLoginType("council");
+            setLoginView("council-login");
             setLoginOpen(true);
           }}
         >
@@ -266,7 +266,11 @@ export function Navbar() {
         </button>
 
         {/* Add loginType={loginType} here if your CustomOffcanvas component expects it */}
-        <CustomOffcanvas open={loginOpen} onOpenChange={setLoginOpen} />
+        <CustomOffcanvas
+          open={loginOpen}
+          onOpenChange={setLoginOpen}
+          initialView={loginView}
+        />
       </div>
 
       {/* Mobile/Tablet Menu */}
