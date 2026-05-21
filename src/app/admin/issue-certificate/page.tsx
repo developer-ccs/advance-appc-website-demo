@@ -17,7 +17,6 @@ export interface Candidate {
   course: string;
   issueDate?: string;
   status: IssueStatus;
-  photoUrl?: string;
 }
 
 const pharmacyQualifications = ["B. PHARM", "D. PHARM", "PHARM. D"];
@@ -32,7 +31,6 @@ const generateMockData = (): Candidate[] =>
     course: pharmacyQualifications[i % pharmacyQualifications.length],
     status: i < 5 ? "Issued" : "Pending",
     issueDate: i < 5 ? new Date().toISOString() : undefined,
-    photoUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`,
   }));
 
 let MOCK_DB = generateMockData();
@@ -104,7 +102,7 @@ const IssuePreviewModal = ({
 
               {/* 2. Photo Area (Top Right) */}
               <div
-                className="absolute overflow-hidden bg-gray-50 flex items-center justify-center"
+                className="absolute overflow-hidden bg-gray-100 flex items-center justify-center border border-gray-300"
                 style={{
                   top: "441px",
                   right: "77px",
@@ -113,14 +111,12 @@ const IssuePreviewModal = ({
                   zIndex: 10,
                 }}
               >
-                {candidate.photoUrl ? (
-                  <img
-                    src={candidate.photoUrl}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-[10px] text-gray-300">PHOTO</span>
-                )}
+                {/* Demo portrait image for preview purposes */}
+                <img
+                  src="/images/my-photo.png"
+                  alt="Candidate Demo Portrait"
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               {/* 3. Individual Data Overlays */}
@@ -195,7 +191,6 @@ const IssuePreviewModal = ({
               </div>
 
               {/* 4. Registrar Signature (Bottom Right) */}
-              {/* Positioned right above the REGISTRAR text in the template */}
               <div
                 className="absolute"
                 style={{
@@ -210,7 +205,7 @@ const IssuePreviewModal = ({
                   src="/images/signature.png" // Path to your signature image
                   alt="Registrar Signature"
                   className="w-full h-full object-contain"
-                  style={{ mixBlendMode: "multiply" }} // Helps blend white backgrounds of scanned signatures
+                  style={{ mixBlendMode: "multiply" }}
                 />
               </div>
             </div>
@@ -235,7 +230,7 @@ const IssuePreviewModal = ({
             <button
               onClick={handleIssueAction}
               disabled={isIssuing}
-              className="flex items-center gap-2 px-6 py-2 text-sm bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2 text-sm bg-blue-900 text-white rounded hover:bg-blue-800 disabled:opacity-50 cursor-pointer"
             >
               {isIssuing ? (
                 <Loader size={16} className="animate-spin" />
@@ -471,7 +466,7 @@ export default function PharmacyIssuePage() {
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 border rounded bg-white disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                className="px-3 py-1 border rounded bg-white disabled:opacity-50 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 ← Prev
               </button>
@@ -481,7 +476,7 @@ export default function PharmacyIssuePage() {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 text-xs font-bold rounded transition-all ${currentPage === pageNum ? "bg-blue-900 text-white shadow-md" : "bg-white text-gray-600 border hover:border-blue-900"}`}
+                      className={`w-8 h-8 text-xs font-bold rounded transition-all cursor-pointer ${currentPage === pageNum ? "bg-blue-900 text-white shadow-md" : "bg-white text-gray-600 border hover:border-blue-900"}`}
                     >
                       {pageNum}
                     </button>
@@ -493,7 +488,7 @@ export default function PharmacyIssuePage() {
                   setCurrentPage((p) => Math.min(totalPages, p + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 border rounded bg-white disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                className="px-3 py-1 border rounded bg-white disabled:opacity-50 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Next →
               </button>

@@ -337,9 +337,7 @@ export default function ApplicantForm() {
                 <div className="absolute top-0 right-0 bg-blue-50 w-24 h-24 rounded-bl-full -z-10 group-hover:bg-blue-100 transition-colors"></div>
                 <div className="flex items-center mb-4">
                   <PenTool className="w-6 h-6 text-blue-600 mr-3" />
-                  <h4 className="text-lg font-bold text-gray-800">
-                    Digital Signature
-                  </h4>
+                  <h4 className="text-lg font-bold text-gray-800">Signature</h4>
                 </div>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-start">
@@ -544,7 +542,7 @@ export default function ApplicantForm() {
                       <div className="flex flex-col">
                         <div className="flex items-center justify-between mb-1">
                           <label className="block text-sm font-bold text-gray-700">
-                            Communication Address{" "}
+                            Present Address{" "}
                             <span className="text-red-500">*</span>
                           </label>
                           <label className="flex items-center cursor-pointer group">
@@ -816,7 +814,7 @@ export default function ApplicantForm() {
                         key: "photo",
                         label: "Recent Passport Photo (with Name & Date)",
                       },
-                      { key: "signature", label: "Digital Signature" },
+                      { key: "signature", label: "Signature" },
                       {
                         key: "ageProof",
                         label: "Class X Certificate (Age Proof)",
